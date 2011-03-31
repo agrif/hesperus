@@ -143,3 +143,21 @@ class CommandPlugin(Plugin):
     def handle_incoming(self, chans, msg, direct, reply):
         for func in self.registered_commands:
             func(self, chans, msg, direct, reply)
+
+# special case of plugin that polls every X seconds
+class PollPlugin(Plugin):
+    poll_interval = 5.0
+    
+    def run(self):
+        self.lasttime = time.time()
+        while True:
+            while time.time() < self.lasttime + self.poll_interval:
+                yield
+            
+            for _ in self.poll():
+                yield
+            
+            self.lasttime = time.time()
+    
+    def poll(self):
+        yield

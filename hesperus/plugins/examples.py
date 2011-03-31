@@ -1,4 +1,4 @@
-from ..plugin import Plugin, CommandPlugin
+from ..plugin import Plugin, CommandPlugin, PollPlugin
 import time
 
 # a simple command-based plugin, note all commands will
@@ -13,23 +13,19 @@ class ExampleCommandPlugin(CommandPlugin):
 # this can be combined with the command plugin, too! The poll thread
 # is the same thread as the one where commands run
 # hence, yield every so often to allow those commands to run!
-class ExamplePollPlugin(Plugin):
-    def run(self):
-        self.lasttime = time.time()
-        while True:
-            # poll every 5 seconds
-            while time.time() < self.lasttime + 5.0:
-                yield
+class ExamplePollPlugin(PollPlugin):
+    poll_interval = 5.0
+    
+    def poll(self):
+        # fetch some page, or something here
+        #urllib.open(...)
+        yield
             
-            # fetch some page, or something here
-            #urllib.open(...)
-            yield
-            
-            # act on the fetch, by sending a message
-            # to our subscribed channels
-            for chan in self.channels:
-                self.parent.send_outgoing(chan, "poll every 5 seconds")
-            yield
+        # act on the fetch, by sending a message
+        # to our subscribed channels
+        for chan in self.channels:
+            self.parent.send_outgoing(chan, "poll every 5 seconds")
+        yield
 
 # a configuration-reading plugin
 # will read

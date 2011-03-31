@@ -1,5 +1,6 @@
 from ircbot import SingleServerIRCBot as IRCBot
 from irclib import nm_to_n, irc_lower
+from ..core import ConfigurationError, ET
 from ..plugin import Plugin
 
 class IRCPluginBot(IRCBot):
@@ -54,16 +55,33 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    def __init__(self, core, server, port, nick, chanmap):
+    @Plugin.config_types(server=str, port=int, nick=str, channelmap=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', channelmap=None):
         super(IRCPlugin, self).__init__(core, daemon=True)
         
         self.server = server
         self.port = port
         self.nick = nick
-        self.chanmap = chanmap
+        self.chanmap = {}
+
+        if channelmap == None:
+            channelmap = []
+        for el in channelmap:
+            if not el.tag.lower() == 'channel':
+                raise ConfigurationError('channelmap must contain channel tags')
+            channel = el.get('name', None)
+            irc_channel = el.text
+            if not channel or not irc_channel:
+                raise ConfigurationError('invalid channel tag')
+            
+            if not channel in self.chanmap:
+                self.chanmap[channel] = [irc_channel]
+            else:
+                self.chanmap[channel].append(irc_channel)
+        
         channels = []
-        for k in chanmap:
-            for chan in chanmap[k]:
+        for k in self.chanmap:
+            for chan in self.chanmap[k]:
                 if not chan in channels:
                     channels.append(chan)
         self.bot = IRCPluginBot(self, channels)

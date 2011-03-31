@@ -1,7 +1,27 @@
 from agent import Agent
+from xml.etree import ElementTree as ET
 import time
 
+class ConfigurationError(Exception):
+    pass
+
+from plugin import Plugin
+
 class Core(Agent):
+    @classmethod
+    def load_from_file(cls, fname):
+        config = ET.parse(fname).getroot()
+        c = Core()
+        
+        for el in config:
+            if el.tag.lower() == 'plugin':
+                p = Plugin.load_plugin(c, el)
+                c.add_plugin(p)
+            else:
+                raise ConfigurationError('unrecognized tag "%s"' % (tag,))
+        
+        return c
+        
     def __init__(self):
         super(Core, self).__init__()
         self._plugins = []

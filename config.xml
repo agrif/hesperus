@@ -1,0 +1,12 @@
+<config>
+  <plugin type="hesperus.plugins.irc.IRCPlugin" channels="a,b,c,d">
+	<server>irc.freenode.net</server>
+	<port>6667</port>
+	<nick>hesperus-gitbot</nick>
+	<channelmap>
+	  <channel name="default">#moosesocks</channel>
+	</channelmap>
+  </plugin>
+  
+  <plugin type="hesperus.plugin.Plugin" channels="default"/>
+</config>

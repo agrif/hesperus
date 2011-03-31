@@ -14,6 +14,9 @@ class IRCPluginBot(IRCBot):
     
     def on_welcome(self, c, e):
         self.plugin.log_message("connected to", self.plugin.server)
+        if self.plugin.nickserv_password:
+            self.plugin.log_verbose("sending password to NickServ...")
+            self.privmsg("NickServ", "identify " + self.plugin.nickserv_password)
         for chan in self.initial_channels:
             c.join(chan)
     
@@ -55,13 +58,14 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, channelmap=ET.Element)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', channelmap=None):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None):
         super(IRCPlugin, self).__init__(core, daemon=True)
         
         self.server = server
         self.port = port
         self.nick = nick
+        self.nickserv_password = nickserv_password
         self.chanmap = {}
 
         if channelmap == None:

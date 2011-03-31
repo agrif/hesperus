@@ -13,10 +13,11 @@ class Plugin(Agent):
         
         kwargs = {}
         for subel in el:
+            nice_tag = subel.tag.lower().replace('-', '_')
             if len(subel) == 0:
-                kwargs[subel.tag.lower()] = subel.text
+                kwargs[nice_tag] = subel.text
             else:
-                kwargs[subel.tag.lower()] = subel
+                kwargs[nice_tag] = subel
         
         plugcls = None
         mod = plug_type.rsplit('.', 1)

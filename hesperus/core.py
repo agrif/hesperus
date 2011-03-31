@@ -32,12 +32,13 @@ class Core(Agent):
                 if not plug.running:
                     plug.start_threaded()
         
-        super(Core, self).start()
-        
-        with self.lock:
-            for plug in self._plugins:
-                if plug.running:
-                    plug.stop()
+        try:
+            super(Core, self).start()
+        finally:
+            with self.lock:
+                for plug in self._plugins:
+                    if plug.running:
+                        plug.stop()
     
     def run(self):
         while True:

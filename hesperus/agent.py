@@ -43,7 +43,8 @@ class Agent(object):
     
     # override this in a subclass and yield every once in a while
     def run(self):
-        yield
+        while True:
+            yield
         
     def start(self):
         with self.lock:

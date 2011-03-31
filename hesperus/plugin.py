@@ -1,6 +1,7 @@
 from agent import Agent
 from core import ConfigurationError, ET
 from copy import copy
+import re
 
 class Plugin(Agent):
     @classmethod
@@ -115,3 +116,30 @@ class Plugin(Agent):
         """Send non-directed text to the given channel. chan holds the
         destination channel, and msg is the message to send."""
         self.log_debug("outgoing", self, chan, msg)
+
+# special case of Plugin that just handles chat commands, given as regexps
+class CommandPlugin(Plugin):
+    # list of registered command functions
+    registered_commands = []
+    # first, the decorator for defining commands
+    # takes a regexp to match, and direct-only flag (default=True)
+    # applies to a function taking (chans, match_obj, direct, reply)
+    @classmethod
+    def register_command(cls, regexp, direct_only=True):
+        regexp = re.compile(regexp)
+        def sub_generator(func):
+            def sub_function(self, chans, msg, direct, reply):
+                if direct_only and not direct:
+                    return
+                match = regexp.match(msg)
+                if not match:
+                    return
+                return func(self, chans, match, direct, reply)
+            cls.registered_commands.append(sub_function)
+            return sub_function
+        return sub_generator
+    
+    @Plugin.queued
+    def handle_incoming(self, chans, msg, direct, reply):
+        for func in self.registered_commands:
+            func(self, chans, msg, direct, reply)

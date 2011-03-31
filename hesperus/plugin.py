@@ -1,3 +1,4 @@
+from agent import Agent
 from copy import copy
 
 class Plugin(Agent):

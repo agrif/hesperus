@@ -1,0 +1,85 @@
+from ircbot import SingleServerIRCBot as IRCBot
+from irclib import nm_to_n, irc_lower
+from ..plugin import Plugin
+
+class IRCPluginBot(IRCBot):
+    def __init__(self, plugin, channels):
+        IRCBot.__init__(self, [(plugin.server, plugin.port)], plugin.nick, plugin.nick)
+        self.initial_channels = channels
+        self.plugin = plugin
+    
+    def on_nicknameinuse(self, c, e):
+        c.nick(c.get_nickname() + "_")
+    
+    def on_welcome(self, c, e):
+        self.plugin.log_message("connected to", self.plugin.server)
+        for chan in self.initial_channels:
+            c.join(chan)
+    
+    def on_privmsg(self, c, e):
+        source = nm_to_n(e.source())
+        self.do_command(source, None, e.arguments()[0].strip())
+        
+    def on_pubmsg(self, c, e):
+        a = e.arguments()[0].split(":", 1)
+        b = e.arguments()[0].split(",", 1)
+        channel = e.target()
+        source = nm_to_n(e.source())
+        if len(a) > 1 and irc_lower(a[0].strip()) == irc_lower(self.connection.get_nickname()):
+            self.do_command(source, channel, a[1].strip())
+        elif len(b) > 1 and irc_lower(b[0].strip()) == irc_lower(self.connection.get_nickname()):
+            self.do_command(source, channel, b[1].strip())
+        else:
+            def reply(msg):
+                self.connection.privmsg(channel, msg)
+            self.plugin.do_input([channel], e.arguments()[0].strip(), False, reply)
+    
+    def do_command(self, source, channel, cmd):
+        if cmd == "":
+            return
+        
+        def reply(msg):
+            if channel == None:
+                self.connection.privmsg(source, msg)
+            else:
+                self.connection.privmsg(channel, "%s: %s" % (source, msg))
+        
+        channels = []
+        if channel != None:
+            channels.append(channel)
+        else:
+            for chan in self.channels:
+                if self.channels[chan].has_user(source):
+                    channels.append(chan)
+        self.plugin.do_input(channels, cmd, True, reply)
+
+class IRCPlugin(Plugin):
+    def __init__(self, core, server, port, nick, chanmap):
+        super(IRCPlugin, self).__init__(core, daemon=True)
+        
+        self.server = server
+        self.port = port
+        self.nick = nick
+        self.chanmap = chanmap
+        channels = []
+        for k in chanmap:
+            for chan in chanmap[k]:
+                if not chan in channels:
+                    channels.append(chan)
+        self.bot = IRCPluginBot(self, channels)
+        
+    def run(self):
+        self.log_verbose("connecting...")
+        self.bot.start()
+    
+    # FIXME stop properly -- might need a different irc lib
+    #def stop(self):
+    #    super(IRCPlugin, self).stop()
+    
+    def do_input(self, irc_channels, msg, direct, reply):
+        chans = []
+        for irc_channel in irc_channels:
+            for k in self.chanmap:
+                if irc_channel in self.chanmap[k] and not k in chans:
+                    chans.append(k)
+        self.parent.handle_incoming(chans, msg, direct, reply)

@@ -1,5 +1,5 @@
 <config>
-  <plugin type="hesperus.plugins.irc.IRCPlugin" channels="a,b,c,d">
+  <plugin type="hesperus.plugins.irc.IRCPlugin">
 	<server>irc.freenode.net</server>
 	<port>6667</port>
 	<nick>hesperus-gitbot</nick>
@@ -9,4 +9,10 @@
   </plugin>
   
   <plugin type="hesperus.plugin.Plugin" channels="default"/>
+  
+  <plugin type="hesperus.plugins.ghub.GitHubPlugin">
+	<feedmap>
+	  <feed channel="default">https://github.com/agrif.private.json?token=fd1257089f1f21e0f7fb3c1888ed5b00</feed>
+	</feedmap>
+  </plugin>
 </config>

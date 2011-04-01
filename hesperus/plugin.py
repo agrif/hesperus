@@ -1,5 +1,6 @@
 from agent import Agent
 from core import ConfigurationError, ET
+import time
 from copy import copy
 import re
 

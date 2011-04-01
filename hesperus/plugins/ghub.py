@@ -63,7 +63,7 @@ class AutoDelayGitHub:
         return getattr(self.gh, name)
 
 class GitHubPlugin(PollPlugin):
-    poll_interval = 5
+    poll_interval = 50
     
     @PollPlugin.config_types(feedmap=ET.Element)
     def __init__(self, core, feedmap=None):
@@ -129,7 +129,7 @@ class GitHubPlugin(PollPlugin):
     def start(self):
         # fetch the initial cache of events
         for url in self.feedmap:
-            pass#self.events_cached[url] = self.get_events(url)
+            self.events_cached[url] = self.get_events(url)
         
         super(GitHubPlugin, self).start()
     

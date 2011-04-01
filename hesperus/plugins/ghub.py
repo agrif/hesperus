@@ -91,7 +91,7 @@ class GitHubPlugin(PollPlugin):
         self.gh = AutoDelayGitHub()
         
     def get_events(self, url):
-        self.log_verbose("fetching", url)
+        self.log_debug("fetching", url)
         r = urllib2.Request(url)
         retdata = urllib2.urlopen(r).read()
         retdata = json.loads(retdata)
@@ -154,13 +154,13 @@ class GitHubPlugin(PollPlugin):
             
             for e in new:
                 event = self.postprocess_event(e)
-                self.log_message(repr(event))
                 
                 if not event['type'] in DEFAULT_FORMATS:
                     self.log_warning("unhandled event", event['type'])
                 else:
                     msg = DEFAULT_FORMATS[event['type']]
                     msg = msg.format(**event)
+                    self.log_message(msg)
                     for chan in self.feedmap[feed]:
                         self.parent.send_outgoing(chan, msg)
                 

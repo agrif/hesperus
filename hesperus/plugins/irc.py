@@ -35,7 +35,7 @@ class IRCPluginBot(IRCBot):
             self.do_command(source, channel, b[1].strip())
         else:
             def reply(msg):
-                self.connection.privmsg(channel, msg)
+                self.connection.notice(channel, msg)
             self.plugin.do_input([channel], e.arguments()[0].strip(), False, reply)
     
     def do_command(self, source, channel, cmd):
@@ -44,9 +44,9 @@ class IRCPluginBot(IRCBot):
         
         def reply(msg):
             if channel == None:
-                self.connection.privmsg(source, msg)
+                self.connection.notice(source, msg)
             else:
-                self.connection.privmsg(channel, "%s: %s" % (source, msg))
+                self.connection.notice(channel, "%s: %s" % (source, msg))
         
         channels = []
         if channel != None:
@@ -85,6 +85,7 @@ class IRCPlugin(Plugin):
         
         channels = []
         for k in self.chanmap:
+            self.subscribe(k)
             for chan in self.chanmap[k]:
                 if not chan in channels:
                     channels.append(chan)
@@ -105,3 +106,8 @@ class IRCPlugin(Plugin):
                 if irc_channel in self.chanmap[k] and not k in chans:
                     chans.append(k)
         self.parent.handle_incoming(chans, msg, direct, reply)
+    
+    def send_outgoing(self, chan, msg):
+        if chan in self.chanmap:
+            for irc_chan in self.chanmap[chan]:
+                self.bot.connection.notice(irc_chan, msg)

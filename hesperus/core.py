@@ -90,5 +90,5 @@ class Core(Agent):
     @Agent.queued
     def send_outgoing(self, chan, msg):
         for plug in self.plugins:
-            if chan is plug.channels:
-                plug.send_outgoing(self, chan, msg)
+            if chan in plug.channels:
+                plug.send_outgoing(chan, msg)

@@ -111,12 +111,14 @@ class Plugin(Agent):
         information. direct is True if the message was directed at us,
         or False if not. reply is a function that accepts a string as
         an argument, and will reply to this message."""
-        self.log_debug("incoming", self, chans, msg, direct, reply)
+        #self.log_debug("incoming", self, chans, msg, direct, reply)
+        pass
     
     def send_outgoing(self, chan, msg):
         """Send non-directed text to the given channel. chan holds the
         destination channel, and msg is the message to send."""
-        self.log_debug("outgoing", self, chan, msg)
+        #self.log_debug("outgoing", self, chan, msg)
+        pass
 
 # special case of Plugin that just handles chat commands, given as regexps
 class CommandPlugin(Plugin):

@@ -16,7 +16,7 @@ class IRCPluginBot(IRCBot):
         self.plugin.log_message("connected to", self.plugin.server)
         if self.plugin.nickserv_password:
             self.plugin.log_verbose("sending password to NickServ...")
-            self.privmsg("NickServ", "identify " + self.plugin.nickserv_password)
+            self.connection.privmsg("NickServ", "identify " + self.plugin.nickserv_password)
         for chan in self.initial_channels:
             c.join(chan)
     

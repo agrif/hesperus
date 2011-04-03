@@ -8,11 +8,11 @@
 	</channelmap>
   </plugin>
   
-  <plugin type="hesperus.plugin.Plugin" channels="default"/>
-  
   <plugin type="hesperus.plugins.ghub.GitHubPlugin">
+	<!--
 	<feedmap>
-	  <feed channel="default">https://github.com/agrif.private.json?token=fd1257089f1f21e0f7fb3c1888ed5b00</feed>
+	  <feed channel="default">https://github.com/somefeed.json</feed>
 	</feedmap>
+	-->
   </plugin>
 </config>

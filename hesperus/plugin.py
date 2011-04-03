@@ -133,11 +133,12 @@ class CommandPlugin(Plugin):
         def sub_generator(func):
             def sub_function(self, chans, msg, direct, reply):
                 if direct_only and not direct:
-                    return
+                    return False
                 match = regexp.match(msg)
                 if not match:
-                    return
-                return func(self, chans, match, direct, reply)
+                    return False
+                func(self, chans, match, direct, reply)
+                return True
             cls.registered_commands.append(sub_function)
             return sub_function
         return sub_generator
@@ -145,7 +146,8 @@ class CommandPlugin(Plugin):
     @Plugin.queued
     def handle_incoming(self, chans, msg, direct, reply):
         for func in self.registered_commands:
-            func(self, chans, msg, direct, reply)
+            if func(self, chans, msg, direct, reply):
+                return
 
 # special case of plugin that polls every X seconds
 class PollPlugin(Plugin):

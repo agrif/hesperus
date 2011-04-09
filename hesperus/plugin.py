@@ -1,8 +1,11 @@
 from agent import Agent
-from core import ConfigurationError, ET
+from xml.etree import ElementTree as ET
 import time
 from copy import copy
 import re
+
+class ConfigurationError(Exception):
+    pass
 
 class Plugin(Agent):
     @classmethod

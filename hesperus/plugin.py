@@ -129,7 +129,7 @@ class CommandPlugin(Plugin):
     # applies to a function taking (chans, match_obj, direct, reply)
     @classmethod
     def register_command(cls, regexp, direct_only=True):
-        regexp = re.compile(regexp)
+        regexp = re.compile(regexp + "$")
         def sub_generator(func):
             def sub_function(self, chans, msg, direct, reply):
                 if direct_only and not direct:

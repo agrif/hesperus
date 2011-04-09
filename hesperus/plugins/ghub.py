@@ -91,7 +91,7 @@ class GitHubPlugin(PollPlugin):
         self.gh = AutoDelayGitHub()
         
     def get_events(self, url):
-        self.log_debug("fetching", url)
+        #self.log_debug("fetching", url)
         r = urllib2.Request(url)
         retdata = urllib2.urlopen(r).read()
         retdata = json.loads(retdata)

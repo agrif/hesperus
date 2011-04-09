@@ -36,7 +36,7 @@ class IRCPluginBot(IRCBot):
         else:
             def reply(msg):
                 self.connection.notice(channel, msg)
-            self.plugin.do_input([channel], e.arguments()[0].strip(), False, reply)
+            self.plugin.do_input([channel], source, e.arguments()[0].strip(), False, reply)
     
     def do_command(self, source, channel, cmd):
         if cmd == "":
@@ -55,11 +55,11 @@ class IRCPluginBot(IRCBot):
             for chan in self.channels:
                 if self.channels[chan].has_user(source):
                     channels.append(chan)
-        self.plugin.do_input(channels, cmd, True, reply)
+        self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None):
         super(IRCPlugin, self).__init__(core, daemon=True)
         
         self.server = server
@@ -67,6 +67,7 @@ class IRCPlugin(Plugin):
         self.nick = nick
         self.nickserv_password = nickserv_password
         self.chanmap = {}
+        self.nickmap = {}
 
         if channelmap == None:
             channelmap = []
@@ -83,12 +84,30 @@ class IRCPlugin(Plugin):
             else:
                 self.chanmap[channel].append(irc_channel)
         
+        if nickmap == None:
+            nickmap = []
+        for el in nickmap:
+            if not el.tag.lower() == 'nick':
+                raise ConfigurationError('nickmap must contain nick tags')
+            channel = el.get('channel', None)
+            irc_nick = el.text
+            if not channel or not irc_nick:
+                raise ConfigurationError('invalid nick tag')
+            
+            if not channel in self.nickmap:
+                self.nickmap[channel] = [irc_nick]
+            else:
+                self.nickmap[channel].append(irc_nick)
+        
         channels = []
         for k in self.chanmap:
             self.subscribe(k)
             for chan in self.chanmap[k]:
                 if not chan in channels:
                     channels.append(chan)
+        for k in self.nickmap:
+            self.subscribe(k)
+
         self.bot = IRCPluginBot(self, channels)
         
     def run(self):
@@ -99,15 +118,21 @@ class IRCPlugin(Plugin):
     #def stop(self):
     #    super(IRCPlugin, self).stop()
     
-    def do_input(self, irc_channels, msg, direct, reply):
+    def do_input(self, irc_channels, irc_nick, msg, direct, reply):
         chans = []
         for irc_channel in irc_channels:
             for k in self.chanmap:
                 if irc_channel in self.chanmap[k] and not k in chans:
                     chans.append(k)
+        for k in self.nickmap:
+            if irc_nick in self.nickmap[k] and not k in chans:
+                chans.append(k)
         self.parent.handle_incoming(chans, msg, direct, reply)
     
     def send_outgoing(self, chan, msg):
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:
                 self.bot.connection.notice(irc_chan, msg)
+        if chan in self.nickmap:
+            for irc_nick in self.nickmap[chan]:
+                self.bot.connection.notice(irc_nick, msg)

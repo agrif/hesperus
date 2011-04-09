@@ -3,9 +3,14 @@
 	<server>irc.freenode.net</server>
 	<port>6667</port>
 	<nick>hesperus-gitbot</nick>
+
 	<channelmap>
 	  <channel name="default">#moosesocks</channel>
 	</channelmap>
+	
+	<nickmap>
+	  <nick channel="admin">agrif</nick>
+	</nickmap>
   </plugin>
   
   <plugin type="hesperus.plugins.ghub.GitHubPlugin">

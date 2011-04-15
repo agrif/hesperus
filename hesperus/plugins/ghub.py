@@ -8,7 +8,7 @@ from posixpath import split as posix_split
 
 from github.github import GitHub
 
-from ..plugin import PollPlugin
+from ..plugin import PollPlugin, CommandPlugin
 from ..core import ET, ConfigurationError
 
 # how each event is printed
@@ -62,13 +62,15 @@ class AutoDelayGitHub:
         self.lasttime = time()
         return getattr(self.gh, name)
 
-class GitHubPlugin(PollPlugin):
+class GitHubPlugin(CommandPlugin, PollPlugin):
     poll_interval = 50
     
-    @PollPlugin.config_types(feedmap=ET.Element)
-    def __init__(self, core, feedmap=None):
+    @PollPlugin.config_types(feedmap=ET.Element, issues_default_user=str, issues_default_repo=str)
+    def __init__(self, core, feedmap=None, issues_default_user="agrif", issues_default_repo="hesperus"):
         super(GitHubPlugin, self).__init__(core)
         
+        self.issues_user = issues_default_user
+        self.issues_repo = issues_default_repo
         self.feedmap = {}
         self.events_cached = {}
 
@@ -147,6 +149,7 @@ class GitHubPlugin(PollPlugin):
             old = self.events_cached[feed]
             if len(old) > 0:
                 last_update = old[0]['created_at']
+                yield
                 new = filter(lambda x: x['created_at'] > last_update, events_new)
             else:
                 new = events_new
@@ -154,6 +157,7 @@ class GitHubPlugin(PollPlugin):
             
             for e in new:
                 event = self.postprocess_event(e)
+                yield
                 
                 if not event['type'] in DEFAULT_FORMATS:
                     self.log_warning("unhandled event", event['type'])
@@ -167,3 +171,35 @@ class GitHubPlugin(PollPlugin):
                 yield
             
             self.events_cached[feed] = events_new
+    
+    @CommandPlugin.register_command(r"issue(?:\s+help)?")
+    def issue_help_command(self, chans, match, direct, reply):
+        reply("Usage: issue <number or search string> [in name/repo]")
+        
+    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
+    def issue_command(self, chans, match, direct, reply):
+        #reply("match: %s" % (repr(match.groups()),))
+        user = match.group(3)
+        if user is None:
+            user = self.issues_user
+        repo = match.group(4)
+        if repo is None:
+            repo = self.issues_repo
+        
+        issues = []
+        try:
+            if match.group(1) is None:
+                search = match.group(2)
+                issues = self.gh.issues.search(user, repo, "open", search)
+            else:
+                issue_id = int(match.group(1))
+                issues = [self.gh.issues.show(user, repo, issue_id)]
+        except urllib2.HTTPError:
+            issues = []
+        
+        issues = issues[:3]
+        for i in issues:
+            i.html_url = _short_url(i.html_url)
+            reply("Issue #{number}: \"{title}\" {html_url}".format(**i.__dict__))
+        if len(issues) == 0:
+            reply("no issues found :(")

@@ -125,8 +125,6 @@ class Plugin(Agent):
 
 # special case of Plugin that just handles chat commands, given as regexps
 class CommandPlugin(Plugin):
-    # list of registered command functions
-    registered_commands = []
     # first, the decorator for defining commands
     # takes a regexp to match, and direct-only flag (default=True)
     # applies to a function taking (chans, match_obj, direct, reply)
@@ -142,14 +140,18 @@ class CommandPlugin(Plugin):
                     return False
                 func(self, chans, match, direct, reply)
                 return True
-            cls.registered_commands.append(sub_function)
+            
+            sub_function._hesperus_command = True
             return sub_function
         return sub_generator
     
     @Plugin.queued
     def handle_incoming(self, chans, msg, direct, reply):
-        for func in self.registered_commands:
-            if func(self, chans, msg, direct, reply):
+        for func in dir(self):
+            func = getattr(self, func)
+            if (not "_hesperus_command" in dir(func)) or (not func._hesperus_command):
+                continue
+            if func(chans, msg, direct, reply):
                 return
 
 # special case of plugin that polls every X seconds

@@ -13,11 +13,13 @@
 	</nickmap>
   </plugin>
   
-  <plugin type="hesperus.plugins.ghub.GitHubPlugin">
+  <plugin type="hesperus.plugins.ghub.GitHubPlugin" channels="default">
 	<!--
 	<feedmap>
 	  <feed channel="default">https://github.com/somefeed.json</feed>
 	</feedmap>
 	-->
+	<issues-default-user>agrif</issues-default-user>
+	<issues-default-repo>hesperus</issues-default-repo>
   </plugin>
 </config>

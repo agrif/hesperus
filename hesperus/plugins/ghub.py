@@ -176,7 +176,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
     def issue_help_command(self, chans, match, direct, reply):
         reply("Usage: issue <number or search string> [in name/repo]")
         
-    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
+    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
     def issue_command(self, chans, match, direct, reply):
         #reply("match: %s" % (repr(match.groups()),))
         user = match.group(3)

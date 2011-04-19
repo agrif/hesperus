@@ -96,6 +96,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         #self.log_debug("fetching", url)
         r = urllib2.Request(url)
         retdata = urllib2.urlopen(r).read()
+            
         retdata = json.loads(retdata)
         # ex. "2011/03/22 00:49:44 -0700"
         timefmt = "%Y/%m/%d %H:%M:%S" # timezone is ignored, split off
@@ -139,7 +140,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         for feed in self.feedmap:
             try:
                 events_new = self.get_events(feed)
-            except urllib2.HTTPError:
+            except (urllib2.HTTPError, urllib2.URLError):
                 # try again later
                 self.log_warning("fetch failed:", feed)
                 return
@@ -200,6 +201,6 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         issues = issues[:3]
         for i in issues:
             i.html_url = _short_url(i.html_url)
-            reply("Issue #{number}: \"{title}\" {html_url}".format(**i.__dict__))
+            reply("Issue #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
         if len(issues) == 0:
             reply("no issues found :(")

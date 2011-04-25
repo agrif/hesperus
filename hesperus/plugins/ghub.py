@@ -22,6 +22,7 @@ DEFAULT_FORMATS = {
     'PullRequestEvent' : "{actor} {payload[action]} pull request {payload[number]}: \"{payload[pull_request][title]}\" on {repository[owner]}/{repository[name]} ({url})",
     'WatchEvent' : "{actor} {payload[action]} watching {repository[owner]}/{repository[name]} ({url})",
     'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} ({url})",
+    'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} ({url})",
 }
 
 # use url shortener

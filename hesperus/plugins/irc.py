@@ -52,8 +52,8 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, inline_commands=bool)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, inline_commands=False):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, inline_commands=bool, alternate_nicks=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, inline_commands=False, alternate_nicks=None):
         super(IRCPlugin, self).__init__(core, daemon=True)
         
         self.server = server
@@ -63,7 +63,16 @@ class IRCPlugin(Plugin):
         self.chanmap = {}
         self.nickmap = {}
         self.inline_commands = inline_commands
-
+        self.nicknames = [nick]
+        
+        if alternate_nicks == None:
+            alternate_nicks = []
+        for el in alternate_nicks:
+            if not el.tag.lower() == 'nick':
+                raise ConfigurationError('alternate-nicks must contain nick tags')
+            self.nicknames.append(el.text.strip())
+        self.nicknames = map(lambda s: s.lower(), self.nicknames)
+        
         if channelmap == None:
             channelmap = []
         for el in channelmap:
@@ -102,7 +111,7 @@ class IRCPlugin(Plugin):
                     channels.append(chan)
         for k in self.nickmap:
             self.subscribe(k)
-
+        
         self.bot = IRCPluginBot(self, channels)
         
     def run(self):
@@ -129,13 +138,13 @@ class IRCPlugin(Plugin):
             direct_re = r"(\S+)\s*(?:,|:)\s*(.+)"
             whole = re.match(r"^" + direct_re + "$", msg)
             old_reply = reply
-            if whole and whole.group(1).lower() == self.nick.lower():
+            if whole and whole.group(1).lower() in self.nicknames:
                 direct = True
                 msg = whole.group(2)
                 reply = lambda s: old_reply(irc_nick + ": " + s)
             elif self.inline_commands:
                 part = re.search("(?:\(|\[)" + direct_re + "(?:\)|\])", msg)
-                if part and part.group(1).lower() == self.nick.lower():
+                if part and part.group(1).lower() in self.nicknames:
                     part_msg = part.group(2)
                     part_reply = lambda s: old_reply(irc_nick + ": " + s)
                     self.parent.handle_incoming(chans, part_msg, True, part_reply)

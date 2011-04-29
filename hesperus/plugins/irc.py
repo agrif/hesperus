@@ -2,6 +2,7 @@ from ircbot import SingleServerIRCBot as IRCBot
 from irclib import nm_to_n, irc_lower
 from ..core import ConfigurationError, ET
 from ..plugin import Plugin
+import re
 
 class IRCPluginBot(IRCBot):
     def __init__(self, plugin, channels):
@@ -25,18 +26,11 @@ class IRCPluginBot(IRCBot):
         self.do_command(source, None, e.arguments()[0].strip())
         
     def on_pubmsg(self, c, e):
-        a = e.arguments()[0].split(":", 1)
-        b = e.arguments()[0].split(",", 1)
         channel = e.target()
         source = nm_to_n(e.source())
-        if len(a) > 1 and irc_lower(a[0].strip()) == irc_lower(self.connection.get_nickname()):
-            self.do_command(source, channel, a[1].strip())
-        elif len(b) > 1 and irc_lower(b[0].strip()) == irc_lower(self.connection.get_nickname()):
-            self.do_command(source, channel, b[1].strip())
-        else:
-            def reply(msg):
-                self.connection.privmsg(channel, msg)
-            self.plugin.do_input([channel], source, e.arguments()[0].strip(), False, reply)
+        def reply(msg):
+            self.connection.privmsg(channel, msg)
+        self.plugin.do_input([channel], source, e.arguments()[0].strip(), False, reply)
     
     def do_command(self, source, channel, cmd):
         if cmd == "":
@@ -58,8 +52,8 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, inline_commands=bool)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, inline_commands=False):
         super(IRCPlugin, self).__init__(core, daemon=True)
         
         self.server = server
@@ -68,6 +62,7 @@ class IRCPlugin(Plugin):
         self.nickserv_password = nickserv_password
         self.chanmap = {}
         self.nickmap = {}
+        self.inline_commands = inline_commands
 
         if channelmap == None:
             channelmap = []
@@ -127,6 +122,24 @@ class IRCPlugin(Plugin):
         for k in self.nickmap:
             if irc_nick in self.nickmap[k] and not k in chans:
                 chans.append(k)
+        
+        # some indirect messages may actually be direct, or have
+        # embedded direct messages
+        if not direct:
+            direct_re = r"(\S+)\s*(?:,|:)\s*(.+)"
+            whole = re.match(r"^" + direct_re + "$", msg)
+            old_reply = reply
+            if whole and whole.group(1).lower() == self.nick.lower():
+                direct = True
+                msg = whole.group(2)
+                reply = lambda s: old_reply(irc_nick + ": " + s)
+            elif self.inline_commands:
+                part = re.search("(?:\(|\[)" + direct_re + "(?:\)|\])", msg)
+                if part and part.group(1).lower() == self.nick.lower():
+                    part_msg = part.group(2)
+                    part_reply = lambda s: old_reply(irc_nick + ": " + s)
+                    self.parent.handle_incoming(chans, part_msg, True, part_reply)
+        
         self.parent.handle_incoming(chans, msg, direct, reply)
     
     def send_outgoing(self, chan, msg):

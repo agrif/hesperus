@@ -65,6 +65,15 @@ class Plugin(Agent):
                         # special string handling
                         if not isinstance(kwargs[k], str):
                             raise ConfigurationError('tag "%s" is not a string' % (k,))
+                    elif types[k] == bool:
+                        # special bool handling
+                        if not isinstance(kwargs[k], bool) and isinstance(kwargs[k], str):
+                            if kwargs[k].lower() in ['true', '1']:
+                                kwargs[k] = True
+                            elif kwargs[k].lower() in ['false', '0']:
+                                kwargs[k] = False
+                        if not isinstance(kwargs[k], bool):
+                            raise ConfigurationError('tag "%s" is not a bool' % (k,))
                     elif types[k] == ET.Element:
                         # special element handling
                         try:

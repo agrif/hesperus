@@ -3,6 +3,7 @@ from irclib import nm_to_n, irc_lower
 from ..core import ConfigurationError, ET
 from ..plugin import Plugin
 import re
+import string
 
 class IRCPluginBot(IRCBot):
     def __init__(self, plugin, channels):
@@ -21,16 +22,23 @@ class IRCPluginBot(IRCBot):
         for chan in self.initial_channels:
             c.join(chan)
     
+    def strip_nonprintable(self, s):
+        return filter(lambda c: c in string.printable, s)
+    
     def on_privmsg(self, c, e):
         source = nm_to_n(e.source())
-        self.do_command(source, None, e.arguments()[0].strip())
+        msg = e.arguments()[0].strip()
+        msg = self.strip_nonprintable(msg)
+        self.do_command(source, None, msg)
         
     def on_pubmsg(self, c, e):
         channel = e.target()
         source = nm_to_n(e.source())
+        msg = e.arguments()[0].strip()
+        msg = self.strip_nonprintable(msg)
         def reply(msg):
             self.connection.privmsg(channel, msg)
-        self.plugin.do_input([channel], source, e.arguments()[0].strip(), False, reply)
+        self.plugin.do_input([channel], source, msg, False, reply)
     
     def do_command(self, source, channel, cmd):
         if cmd == "":

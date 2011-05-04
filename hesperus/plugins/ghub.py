@@ -10,6 +10,7 @@ from github.github import GitHub
 
 from ..plugin import PollPlugin, CommandPlugin
 from ..core import ET, ConfigurationError
+from ..shorturl import short_url as _short_url
 
 # how each event is printed
 DEFAULT_FORMATS = {
@@ -24,25 +25,6 @@ DEFAULT_FORMATS = {
     'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} ({url})",
     'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} ({url})",
 }
-
-# use url shortener
-def _short_url(url):
-    if not url:
-        return None
-    
-    apiurl = 'https://www.googleapis.com/urlshortener/v1/url'
-    data = json.dumps({'longUrl' : url})
-    headers = {'Content-Type' : 'application/json'}
-    r = urllib2.Request(apiurl, data, headers)
-    
-    try:
-        retdata = urllib2.urlopen(r).read()
-        retdata = json.loads(retdata)
-        return retdata.get('id', url)
-    except urllib2.URLError:
-        return url
-    except ValueError:
-        return url
 
 # make refs look nice
 def _nice_ref(ref):

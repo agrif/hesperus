@@ -1,28 +1,10 @@
 from hesperus.plugin import CommandPlugin
-import urllib, urllib2, json
 from ..core import ConfigurationError, ET
+from ..shorturl import short_url
 
 import subprocess
 
-def _short_url(url):
-    if not url:
-        return None
-    
-    apiurl = 'https://www.googleapis.com/urlshortener/v1/url'
-    data = json.dumps({'longUrl' : url})
-    headers = {'Content-Type' : 'application/json'}
-    r = urllib2.Request(apiurl, data, headers)
-    
-    try:
-        retdata = urllib2.urlopen(r).read()
-        retdata = json.loads(retdata)
-        return retdata.get('id', url)
-    except urllib2.URLError:
-        return url
-    except ValueError:
-        return url
-
-filters = {'shorturl' : _short_url}
+filters = {'shorturl' : short_url}
 
 def check_output(*args, **kwargs):
     kwargs['stdout'] = subprocess.PIPE

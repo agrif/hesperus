@@ -62,7 +62,8 @@ class IRCPluginBot(IRCBot):
 class IRCPlugin(Plugin):
     @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, inline_commands=bool, alternate_nicks=ET.Element, command_chars=str)
     def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, inline_commands=False, alternate_nicks=None, command_chars="", name_sep_chars=",:"):
-        super(IRCPlugin, self).__init__(core, daemon=True)
+        
+        super(IRCPlugin, self).__init__(core)
         
         self.server = server
         self.port = port
@@ -133,12 +134,13 @@ class IRCPlugin(Plugin):
         
     def run(self):
         self.log_verbose("connecting...")
-        self.bot.start()
+        #self.bot.start()
+        self.bot._connect()
+        while True:
+            self.bot.ircobj.process_once()
+            yield
     
-    # FIXME stop properly -- might need a different irc lib
-    #def stop(self):
-    #    super(IRCPlugin, self).stop()
-    
+    @Plugin.queued
     def do_input(self, irc_channels, irc_nick, msg, direct, reply):
         chans = []
         for irc_channel in irc_channels:
@@ -168,6 +170,7 @@ class IRCPlugin(Plugin):
         
         self.parent.handle_incoming(chans, msg, direct, reply)
     
+    @Plugin.queued
     def send_outgoing(self, chan, msg):
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:

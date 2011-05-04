@@ -137,6 +137,8 @@ class Plugin(Agent):
 
 # special case of Plugin that just handles chat commands, given as regexps
 class CommandPlugin(Plugin):
+    commands_queued = True
+    
     # first, the decorator for defining commands
     # takes a regexp to match, and direct-only flag (default=True)
     # applies to a function taking (chans, match_obj, direct, reply)
@@ -157,14 +159,20 @@ class CommandPlugin(Plugin):
             return sub_function
         return sub_generator
     
-    @Plugin.queued
-    def handle_incoming(self, chans, msg, direct, reply):
+    def handle_incoming(self, *args):
+        if self.commands_queued:
+            self.handle_incoming_queued(*args)
+        else:
+            self.handle_incoming_nonqueued(*args)
+    
+    def handle_incoming_nonqueued(self, chans, msg, direct, reply):
         for func in dir(self):
             func = getattr(self, func)
             if (not "_hesperus_command" in dir(func)) or (not func._hesperus_command):
                 continue
             if func(chans, msg, direct, reply):
                 return
+    handle_incoming_queued = Plugin.queued(handle_incoming_nonqueued)
 
 # special case of plugin that polls every X seconds
 class PollPlugin(Plugin):

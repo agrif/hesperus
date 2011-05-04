@@ -34,7 +34,7 @@ def _nice_ref(ref):
 
 # automatically spaces out github requests!
 class AutoDelayGitHub:
-    def __init__(self, delay=3.0):
+    def __init__(self, delay=1.0):
         self.gh = GitHub()
         self.lasttime = 0
         self.delay = delay
@@ -47,6 +47,7 @@ class AutoDelayGitHub:
 
 class GitHubPlugin(CommandPlugin, PollPlugin):
     poll_interval = 50
+    commands_queued = False
     
     @PollPlugin.config_types(feedmap=ET.Element, issues_default_user=str, issues_default_repo=str)
     def __init__(self, core, feedmap=None, issues_default_user="agrif", issues_default_repo="hesperus"):

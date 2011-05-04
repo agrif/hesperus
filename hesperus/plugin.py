@@ -2,6 +2,7 @@ from agent import Agent
 from xml.etree import ElementTree as ET
 import time
 from copy import copy
+import traceback
 import re
 
 class ConfigurationError(Exception):
@@ -30,12 +31,14 @@ class Plugin(Agent):
             try:
                 plugcls = __import__(mod[0])
             except ImportError:
+                traceback.print_exc()
                 raise ConfigurationError('invalid plugin type "%s"' % (plug_type,))
         else:
             try:
                 plugcls = __import__(mod[0], fromlist=[mod[1]])
                 plugcls = getattr(plugcls, mod[1])
             except (ImportError, AttributeError):
+                traceback.print_exc()
                 raise ConfigurationError('invalid plugin type "%s"' % (plug_type,))
         
         try:

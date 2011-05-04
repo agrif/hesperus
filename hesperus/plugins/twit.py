@@ -37,6 +37,9 @@ class TwitterPlugin(PollPlugin):
         new_tweets = sorted(new_tweets, key=lambda s: s.created_at_in_seconds)
         yield
         
+        if len(new_tweets) == 0:
+            return
+        
         self.last_update = max(map(lambda s: s.created_at_in_seconds, new_tweets))
         
         for tweet in new_tweets:

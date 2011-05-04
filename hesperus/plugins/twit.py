@@ -37,6 +37,8 @@ class TwitterPlugin(PollPlugin):
         new_tweets = sorted(new_tweets, key=lambda s: s.created_at_in_seconds)
         yield
         
+        self.last_update = max(map(lambda s: s.created_at_in_seconds, new_tweets))
+        
         for tweet in new_tweets:
             msg = "@{s.user.screen_name} tweeted: {s.text}"
             msg = msg.format(s=tweet)

@@ -161,15 +161,13 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
     def issue_help_command(self, chans, match, direct, reply):
         reply("Usage: issue <number or search string> [in name/repo]")
         
-    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
+    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
     def issue_command(self, chans, match, direct, reply):
         #reply("match: %s" % (repr(match.groups()),))
         user = match.group(3)
         if user is None:
             user = self.issues_user
-        repo = match.group(4)
-        if repo is None:
-            repo = self.issues_repo
+        repo = self.issues_repo
         
         issues = []
         try:
@@ -188,3 +186,19 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             reply("Issue #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
         if len(issues) == 0:
             reply("no issues found :(")
+    
+    @CommandPlugin.register_command(r"([^\:]+)\:([0-9]+)(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
+    def file_line_command(self, chans, match, direct, reply):
+        fname = match.group(1)
+        lineno = match.group(2)
+        user = match.group(3)
+        if user is None:
+            user = self.issues_user
+        repo = self.issues_repo
+        branch = match.group(4)
+        if branch is None:
+            branch = "master"
+        
+        url_format = "https://github.com/{user}/{repo}/blob/{branch}/{fname}#L{lineno}"
+        reply(_short_url(url_format.format(
+                    user=user, repo=repo, branch=branch, fname=fname, lineno=lineno)))

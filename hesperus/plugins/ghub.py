@@ -50,11 +50,11 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
     commands_queued = False
     
     @PollPlugin.config_types(feedmap=ET.Element, issues_default_user=str, issues_default_repo=str)
-    def __init__(self, core, feedmap=None, issues_default_user="agrif", issues_default_repo="hesperus"):
+    def __init__(self, core, feedmap=None, default_user="agrif", default_repo="hesperus"):
         super(GitHubPlugin, self).__init__(core)
         
-        self.issues_user = issues_default_user
-        self.issues_repo = issues_default_repo
+        self.default_user = default_user
+        self.default_repo = default_repo
         self.feedmap = {}
         self.events_cached = {}
 
@@ -166,8 +166,8 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         #reply("match: %s" % (repr(match.groups()),))
         user = match.group(3)
         if user is None:
-            user = self.issues_user
-        repo = self.issues_repo
+            user = self.default_user
+        repo = self.default_repo
         
         issues = []
         try:
@@ -193,8 +193,8 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         lineno = match.group(2)
         user = match.group(3)
         if user is None:
-            user = self.issues_user
-        repo = self.issues_repo
+            user = self.default_user
+        repo = self.default_repo
         branch = match.group(4)
         if branch is None:
             branch = "master"

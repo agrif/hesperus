@@ -21,7 +21,7 @@
 	  <feed channel="default">https://github.com/somefeed.json</feed>
 	</feedmap>
 	-->
-	<issues-default-user>agrif</issues-default-user>
-	<issues-default-repo>hesperus</issues-default-repo>
+	<default-user>agrif</default-user>
+	<default-repo>hesperus</default-repo>
   </plugin>
 </config>

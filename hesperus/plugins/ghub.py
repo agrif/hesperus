@@ -16,6 +16,7 @@ from ..shorturl import short_url as _short_url
 DEFAULT_FORMATS = {
     'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} ({url})",
     'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} ({url})",
+    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} ({url})",
     'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} ({url})",
     'GollumEvent' : "{actor} {payload[action]} \"{payload[title]}\" in the {repository[owner]}/{repository[name]} wiki ({url})",
     'CreateEvent' : "{actor} created {payload[object]} {payload[object_name]} at {repository[owner]}/{repository[name]} ({url})",
@@ -105,6 +106,15 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             payload = event['payload']
             issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
             payload['issue'] = issue.__dict__
+        if event['type'] == 'IssueCommentEvent':
+            payload = event['payload']
+            try:
+                payload['number'] = int(event['url'].split('/issues/', 1)[1])
+                issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
+                payload['issue'] = issue.__dict__
+                event['url'] = '%s#issuecomment-%i' % (event['url'], payload['comment_id'])
+            except TypeError:
+                pass
         if event['type'] == 'DownloadEvent':
             payload = event['payload']
             payload['filename'] = posix_split(payload['url'])[1]

@@ -1,6 +1,7 @@
 import time
 import urllib2
 import json
+import re
 from datetime import datetime
 from time import time, sleep
 from copy import copy
@@ -16,7 +17,7 @@ from ..shorturl import short_url as _short_url
 DEFAULT_FORMATS = {
     'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} ({url})",
     'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} ({url})",
-    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} ({url})",
+    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]}: \"{payload[body_short]}\" ({url})",
     'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} ({url})",
     'GollumEvent' : "{actor} {payload[action]} \"{payload[title]}\" in the {repository[owner]}/{repository[name]} wiki ({url})",
     'CreateEvent' : "{actor} created {payload[object]} {payload[object_name]} at {repository[owner]}/{repository[name]} ({url})",
@@ -26,6 +27,38 @@ DEFAULT_FORMATS = {
     'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} ({url})",
     'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} ({url})",
 }
+
+# pretty string trunc function
+# <http://kelvinwong.ca/2007/06/22/a-nicer-python-string-truncation-function/>
+# from Kelvin Wong, under the license at http://www.python.org/psf/license/
+def _trunc(s, min_pos=0, max_pos=75, ellipsis=True):
+    # Sentinel value -1 returned by String function rfind
+    NOT_FOUND = -1
+    # Error message for max smaller than min positional error
+    ERR_MAXMIN = 'Minimum position cannot be greater than maximum position'
+    
+    # If the minimum position value is greater than max, throw an exception
+    if max_pos < min_pos:
+        raise ValueError(ERR_MAXMIN)
+    # Change the ellipsis characters here if you want a true ellipsis
+    if ellipsis:
+        suffix = '...'
+    else:
+        suffix = ''
+    # Case 1: Return string if it is shorter (or equal to) than the limit
+    length = len(s)
+    if length <= max_pos:
+        return s + suffix
+    else:
+        # Case 2: Return it to nearest period if possible
+        try:
+            end = s.rindex('.',min_pos,max_pos)
+        except ValueError:
+            # Case 3: Return string to nearest space
+            end = s.rfind(' ',min_pos,max_pos)
+            if end == NOT_FOUND:
+                end = max_pos
+        return s[0:end] + suffix
 
 # make refs look nice
 def _nice_ref(ref):
@@ -110,8 +143,22 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             payload = event['payload']
             try:
                 payload['number'] = int(event['url'].split('/issues/', 1)[1])
+                
                 issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
                 payload['issue'] = issue.__dict__
+                
+                comments = self.gh.issues.comments(event['repository']['owner'], event['repository']['name'], payload['number'])
+                comments = filter(lambda c: c.id == payload['comment_id'], comments)
+                if comments:
+                    body = comments[0].body
+                    payload['body'] = body
+                    body_short = re.sub(r'\s+', ' ', body)
+                    body_short = _trunc(body_short)
+                    payload['body_short'] = body
+                else:
+                    payload['body'] = ''
+                    payload['body_short'] = ''
+                
                 event['url'] = '%s#issuecomment-%i' % (event['url'], payload['comment_id'])
             except TypeError:
                 pass

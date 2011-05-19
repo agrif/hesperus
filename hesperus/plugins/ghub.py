@@ -154,7 +154,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
                     payload['body'] = body
                     body_short = re.sub(r'\s+', ' ', body)
                     body_short = _trunc(body_short)
-                    payload['body_short'] = body
+                    payload['body_short'] = body_short
                 else:
                     payload['body'] = ''
                     payload['body_short'] = ''

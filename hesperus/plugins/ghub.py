@@ -142,7 +142,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         if event['type'] == 'IssueCommentEvent':
             payload = event['payload']
             try:
-                payload['number'] = int(event['url'].split('/issues/', 1)[1])
+                payload['number'] = int(event['url'].split('/issues/', 1)[1].split("#", 1)[0])
                 
                 issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
                 payload['issue'] = issue.__dict__
@@ -159,8 +159,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
                     payload['body'] = ''
                     payload['body_short'] = ''
                 
-                event['url'] = '%s#issuecomment-%i' % (event['url'], payload['comment_id'])
-            except TypeError:
+            except (TypeError, ValueError):
                 pass
         if event['type'] == 'DownloadEvent':
             payload = event['payload']

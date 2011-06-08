@@ -213,11 +213,11 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             
             self.events_cached[feed] = events_new
     
-    @CommandPlugin.register_command(r"issue(?:\s+help)?")
+    @CommandPlugin.register_command(r"(?:issue|pull)s?(?:\s+help)?")
     def issue_help_command(self, chans, match, direct, reply):
         reply("Usage: issue <number or search string> [in name/repo]")
         
-    @CommandPlugin.register_command(r"issue\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
+    @CommandPlugin.register_command(r"(?:issue|pull)s?\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
     def issue_command(self, chans, match, direct, reply):
         #reply("match: %s" % (repr(match.groups()),))
         user = match.group(3)

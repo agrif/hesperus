@@ -4,10 +4,14 @@ from ..shorturl import short_url
 
 import subprocess
 
-filters = {'shorturl' : short_url}
+def multiline(s):
+    return " ".join(s.splitlines())
+
+filters = {'shorturl' : short_url, 'multiline' : multiline}
 
 def check_output(*args, **kwargs):
     kwargs['stdout'] = subprocess.PIPE
+    kwargs['stderr'] = subprocess.STDOUT
     # will hang for HUGE output... you were warned
     p = subprocess.Popen(*args, **kwargs)
     returncode = p.wait()
@@ -37,9 +41,10 @@ class ShCommandPlugin(CommandPlugin):
                 filt = filters[filt]
             else:
                 filt = lambda s: s
+            error = el.get('error', 'command failed')
             command = el.text.strip()
             
-            self.commands[name.lower()] = (command, filt)
+            self.commands[name.lower()] = (command, filt, error)
         
     @CommandPlugin.register_command(r"(\S+)(?:\s+(.+))?")
     def run_command(self, chans, match, direct, reply):
@@ -47,7 +52,7 @@ class ShCommandPlugin(CommandPlugin):
         if not cmd in self.commands:
             return
 
-        cmd, filt = self.commands[cmd]
+        cmd, filt, error = self.commands[cmd]
         args = match.group(2)
         if not args:
             args = ""
@@ -59,4 +64,4 @@ class ShCommandPlugin(CommandPlugin):
             reply(output)
         except subprocess.CalledProcessError:
             self.log_error("could not run command \"%s\"" % (match.group(1),))
-            reply("command failed, please tell bot operator")
+            reply(error)

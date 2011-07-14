@@ -3,6 +3,8 @@ from ..core import ConfigurationError, ET
 from ..shorturl import short_url
 
 import subprocess
+from shlex import split as sh_split
+from pipes import quote as sh_quote
 
 def multiline(s):
     return " ".join(s.splitlines())
@@ -56,7 +58,9 @@ class ShCommandPlugin(CommandPlugin):
         args = match.group(2)
         if not args:
             args = ""
-        args = " " + args
+        
+        args = map(sh_quote, sh_split(args))
+        args = " " + " ".join(args)
         
         try:
             output = check_output(cmd + args, shell=True)

@@ -59,8 +59,13 @@ class ShCommandPlugin(CommandPlugin):
         if not args:
             args = ""
         
-        args = map(sh_quote, sh_split(args))
-        args = " " + " ".join(args)
+        try:
+            args = map(sh_quote, sh_split(args))
+            args = " " + " ".join(args)
+        except ValueError:
+            self.log_error("invalid arguments for \"%s\"" % (match.group(1),))
+            reply(error)
+            return
         
         try:
             output = check_output(cmd + args, shell=True)

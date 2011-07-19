@@ -37,7 +37,7 @@ class IRCPluginBot(IRCBot):
         msg = e.arguments()[0].strip()
         msg = self.strip_nonprintable(msg)
         def reply(msg):
-            self.connection.privmsg(channel, msg)
+            self.connection.privmsg(channel, msg.encode('utf-8'))
         self.plugin.do_input([channel], source, msg, False, reply)
     
     def do_command(self, source, channel, cmd):
@@ -46,9 +46,9 @@ class IRCPluginBot(IRCBot):
         
         def reply(msg):
             if channel == None:
-                self.connection.privmsg(source, msg)
+                self.connection.privmsg(source, msg.encode('utf-8'))
             else:
-                self.connection.privmsg(channel, "%s: %s" % (source, msg))
+                self.connection.privmsg(channel, ("%s: %s" % (source, msg)).encode('utf-8'))
         
         channels = []
         if channel != None:

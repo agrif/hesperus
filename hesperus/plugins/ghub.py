@@ -204,10 +204,13 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
                     self.log_warning("unhandled event", event['type'])
                 else:
                     msg = DEFAULT_FORMATS[event['type']]
-                    msg = msg.format(**event)
-                    self.log_message(msg)
-                    for chan in self.feedmap[feed]:
-                        self.parent.send_outgoing(chan, msg)
+                    try:
+                        msg = msg.format(**event)
+                        self.log_message(msg)
+                        for chan in self.feedmap[feed]:
+                            self.parent.send_outgoing(chan, msg)
+                    except Exception, ex:
+                        self.log_warning("error while formatting event", repr(event))
                 
                 yield
             

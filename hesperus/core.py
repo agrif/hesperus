@@ -77,11 +77,11 @@ class Core(Agent):
                 self.remove_plugin(self._plugins[0])
     
     @Agent.queued
-    def handle_incoming(self, chans, msg, direct, reply):
+    def handle_incoming(self, chans, name, msg, direct, reply):
         for plug in self.plugins:
             relevant_chans = set(plug.channels).intersection(set(chans))
             if len(relevant_chans) > 0:
-                plug.handle_incoming(list(relevant_chans), msg, direct, reply)
+                plug.handle_incoming(list(relevant_chans), name, msg, direct, reply)
     
     @Agent.queued
     def send_outgoing(self, chan, msg):

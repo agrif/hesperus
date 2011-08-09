@@ -166,9 +166,9 @@ class IRCPlugin(Plugin):
                 if part:
                     part_msg = part.group(1)
                     part_reply = lambda s: old_reply(irc_nick + ": " + s)
-                    self.parent.handle_incoming(chans, part_msg, True, part_reply)
+                    self.parent.handle_incoming(chans, irc_nick, part_msg, True, part_reply)
         
-        self.parent.handle_incoming(chans, msg, direct, reply)
+        self.parent.handle_incoming(chans, irc_nick, msg, direct, reply)
     
     @Plugin.queued
     def send_outgoing(self, chan, msg):

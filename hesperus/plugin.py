@@ -119,13 +119,15 @@ class Plugin(Agent):
     
     # override in subclasses, use Plugin.queued when appropriate
     
-    def handle_incoming(self, chans, msg, direct, reply):
+    def handle_incoming(self, chans, name, msg, direct, reply):
         """Handle incoming messages. chans contains a list of channels
-        that the author of this message belongs to. msg contains the
-        text itself, possibly stripped of non-important
-        information. direct is True if the message was directed at us,
-        or False if not. reply is a function that accepts a string as
-        an argument, and will reply to this message."""
+        that the author of this message belongs to. name is the name
+        of the author (or None, if the source doesn't support
+        names). msg contains the text itself, possibly stripped of
+        non-important information. direct is True if the message was
+        directed at us, or False if not. reply is a function that
+        accepts a string as an argument, and will reply to this
+        message."""
         #self.log_debug("incoming", self, chans, msg, direct, reply)
         pass
     
@@ -146,13 +148,13 @@ class CommandPlugin(Plugin):
     def register_command(cls, regexp, direct_only=True):
         regexp = re.compile(regexp + "$")
         def sub_generator(func):
-            def sub_function(self, chans, msg, direct, reply):
+            def sub_function(self, chans, name, msg, direct, reply):
                 if direct_only and not direct:
                     return False
                 match = regexp.match(msg)
                 if not match:
                     return False
-                func(self, chans, match, direct, reply)
+                func(self, chans, name, match, direct, reply)
                 return True
             
             sub_function._hesperus_command = True
@@ -165,12 +167,12 @@ class CommandPlugin(Plugin):
         else:
             self.handle_incoming_nonqueued(*args)
     
-    def handle_incoming_nonqueued(self, chans, msg, direct, reply):
+    def handle_incoming_nonqueued(self, chans, name, msg, direct, reply):
         for func in dir(self):
             func = getattr(self, func)
             if (not "_hesperus_command" in dir(func)) or (not func._hesperus_command):
                 continue
-            if func(chans, msg, direct, reply):
+            if func(chans, name, msg, direct, reply):
                 return
     handle_incoming_queued = Plugin.queued(handle_incoming_nonqueued)
 

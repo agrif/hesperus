@@ -57,7 +57,7 @@ class AlphaPlugin(CommandPlugin):
         self.app_id = app_id
     
     @CommandPlugin.register_command(r"(?:wolframalpha|wa|alpha|=)\s+(.+)")
-    def alpha_command(self, chans, match, direct, reply):
+    def alpha_command(self, chans, name, match, direct, reply):
         ret = alpha(match.group(1), self.app_id)
         if not ret['success']:
             reply('wolfram alpha is confused: %s' % short_url(ret['web']))

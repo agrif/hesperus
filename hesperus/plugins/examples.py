@@ -5,7 +5,7 @@ import time
 # run in the same thread
 class ExampleCommandPlugin(CommandPlugin):
     @CommandPlugin.register_command("test (.*)")
-    def test_command(self, chans, match, direct, reply):
+    def test_command(self, chans, name, match, direct, reply):
         reply("got test command, %s" % (match.group(1),))
 
 # a polling-based plugin, that checks an external source for info

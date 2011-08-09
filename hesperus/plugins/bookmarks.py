@@ -23,7 +23,7 @@ class BookmarksPlugin(CommandPlugin):
                 self.bookmarks[name.lower()] = url
         
     @CommandPlugin.register_command(r"(\S+)")
-    def bookmark_command(self, chans, match, direct, reply):
+    def bookmark_command(self, chans, name, match, direct, reply):
         cmd = match.group(1).lower()
         if not cmd in self.bookmarks:
             return

@@ -49,7 +49,7 @@ class ShCommandPlugin(CommandPlugin):
             self.commands[name.lower()] = (command, filt, error)
         
     @CommandPlugin.register_command(r"(\S+)(?:\s+(.+))?")
-    def run_command(self, chans, match, direct, reply):
+    def run_command(self, chans, name, match, direct, reply):
         cmd = match.group(1).lower()
         if not cmd in self.commands:
             return

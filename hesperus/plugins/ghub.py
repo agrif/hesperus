@@ -217,11 +217,11 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             self.events_cached[feed] = events_new
     
     @CommandPlugin.register_command(r"(?:issue|pull)s?(?:\s+help)?")
-    def issue_help_command(self, chans, match, direct, reply):
+    def issue_help_command(self, chans, name, match, direct, reply):
         reply("Usage: issue <number or search string> [in name/repo]")
         
     @CommandPlugin.register_command(r"(?:issue|pull)s?\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
-    def issue_command(self, chans, match, direct, reply):
+    def issue_command(self, chans, name, match, direct, reply):
         #reply("match: %s" % (repr(match.groups()),))
         user = match.group(3)
         if user is None:
@@ -247,7 +247,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             reply("no issues found :(")
     
     @CommandPlugin.register_command(r"([^\:]+)\:([0-9]+)(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
-    def file_line_command(self, chans, match, direct, reply):
+    def file_line_command(self, chans, name, match, direct, reply):
         fname = match.group(1)
         lineno = match.group(2)
         user = match.group(3)

@@ -14,6 +14,7 @@
   </plugin>
   
   <plugin type="hesperus.plugins.google.GooglePlugin" channels="default"/>
+  <plugin type="hesperus.plugins.whoami.WhoAmIPlugin" channels="default"/>
   
   <plugin type="hesperus.plugins.ghub.GitHubPlugin" channels="default">
 	<!--

@@ -81,7 +81,7 @@ class Core(Agent):
         for plug in self.plugins:
             relevant_chans = set(plug.channels).intersection(set(chans))
             if len(relevant_chans) > 0:
-                plug.handle_incoming(list(relevant_chans), name, msg, direct, reply)
+                plug.handle_incoming(chans, name, msg, direct, reply)
     
     @Agent.queued
     def send_outgoing(self, chan, msg):

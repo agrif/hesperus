@@ -216,31 +216,38 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             
             self.events_cached[feed] = events_new
     
-    @CommandPlugin.register_command(r"(?:issue|pull)s?(?:\s+help)?")
+    @CommandPlugin.register_command(r"(issue|pull|patch|diff)s?(?:\s+help)?")
     def issue_help_command(self, chans, name, match, direct, reply):
-        reply("Usage: issue <number or search string> [in name/repo]")
+        cmd = match.group(1)
+        reply("Usage: %s <number or search string> [in name/repo]" % (cmd,))
         
-    @CommandPlugin.register_command(r"(?:issue|pull)s?\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
+    @CommandPlugin.register_command(r"(issue|pull|patch|diff)s?\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
     def issue_command(self, chans, name, match, direct, reply):
         #reply("match: %s" % (repr(match.groups()),))
-        user = match.group(3)
+        cmd = match.group(1)
+        user = match.group(4)
         if user is None:
             user = self.default_user
         repo = self.default_repo
         
         issues = []
         try:
-            if match.group(1) is None:
-                search = match.group(2)
+            if match.group(2) is None:
+                search = match.group(3)
                 issues = self.gh.issues.search(user, repo, "open", search)
             else:
-                issue_id = int(match.group(1))
+                issue_id = int(match.group(2))
                 issues = [self.gh.issues.show(user, repo, issue_id)]
         except urllib2.HTTPError:
             issues = []
         
         issues = issues[:3]
         for i in issues:
+            if cmd == 'patch':
+                i.html_url += '.patch'
+            elif cmd == 'diff':
+                i.html_url += '.diff'
+            
             i.html_url = _short_url(i.html_url)
             reply("Issue #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
         if len(issues) == 0:

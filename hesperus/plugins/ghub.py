@@ -243,13 +243,17 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         
         issues = issues[:3]
         for i in issues:
+            if cmd in ('pull', 'patch', 'diff'):
+                if not 'pull_request_url' in i.__dict__:
+                    continue
+                i.html_url = i.pull_request_url
             if cmd == 'patch':
                 i.html_url += '.patch'
             elif cmd == 'diff':
                 i.html_url += '.diff'
             
             i.html_url = _short_url(i.html_url)
-            reply("Issue #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
+            reply(cmd.capitalize() + " #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
         if len(issues) == 0:
             reply("no issues found :(")
     

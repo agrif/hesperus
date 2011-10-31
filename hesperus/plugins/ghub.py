@@ -241,6 +241,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         except urllib2.HTTPError:
             issues = []
         
+        issues.reverse()
         issues = issues[:3]
         for i in issues:
             if cmd in ('pull', 'patch', 'diff'):

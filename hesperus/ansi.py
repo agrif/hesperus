@@ -13,6 +13,16 @@ colored_map = {
     'cyan' : 36,
     'white' : 37,
     
+    # backgrounds
+    'black background' : 40,
+    'red background' : 41,
+    'green background' : 42,
+    'yellow background' : 43,
+    'blue background' : 44,
+    'magenta background' : 45,
+    'cyan background' : 46,
+    'white background' : 47,
+    
     # settings
     'bold' : 1,
 }

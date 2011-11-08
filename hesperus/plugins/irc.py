@@ -174,7 +174,7 @@ class IRCPlugin(Plugin):
     def send_outgoing(self, chan, msg):
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:
-                self.bot.connection.notice(irc_chan, msg)
+                self.bot.connection.privmsg(irc_chan, msg)
         if chan in self.nickmap:
             for irc_nick in self.nickmap[chan]:
-                self.bot.connection.notice(irc_nick, msg)
+                self.bot.connection.privmsg(irc_nick, msg)

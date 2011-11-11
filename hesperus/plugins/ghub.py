@@ -11,7 +11,8 @@ from github.github import GitHub
 
 from ..plugin import PollPlugin, CommandPlugin
 from ..core import ET, ConfigurationError
-from ..shorturl import short_url as _short_url
+from ..shorturl import short_url
+_short_url = lambda u: short_url(u, provider="git.io")
 
 # how each event is printed
 DEFAULT_FORMATS = {

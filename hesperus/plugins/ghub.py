@@ -16,17 +16,17 @@ _short_url = lambda u: short_url(u, provider="git.io")
 
 # how each event is printed
 DEFAULT_FORMATS = {
-    'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} ({url})",
-    'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} ({url})",
-    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]}: \"{payload[body_short]}\" ({url})",
-    'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} ({url})",
-    'GollumEvent' : "{actor} {payload[pages][0][action]} \"{payload[pages][0][title]}\" in the {repository[owner]}/{repository[name]} wiki ({url})",
-    'CreateEvent' : "{actor} created {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} ({url})",
-    'DeleteEvent' : "{actor} deleted {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} ({url})",
-    'PullRequestEvent' : "{actor} {payload[action]} pull request {payload[number]}: \"{payload[pull_request][title]}\" on {repository[owner]}/{repository[name]} ({url})",
-    'WatchEvent' : "{actor} {payload[action]} watching {repository[owner]}/{repository[name]} ({url})",
-    'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} ({url})",
-    'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} ({url})",
+    'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
+    'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} {url}",
+    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]}: \"{payload[body_short]}\" {url}",
+    'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} {url}",
+    'GollumEvent' : "{actor} {payload[pages][0][action]} \"{payload[pages][0][title]}\" in the {repository[owner]}/{repository[name]} wiki {url}",
+    'CreateEvent' : "{actor} created {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
+    'DeleteEvent' : "{actor} deleted {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
+    'PullRequestEvent' : "{actor} {payload[action]} pull request {payload[number]}: \"{payload[pull_request][title]}\" on {repository[owner]}/{repository[name]} {url}",
+    'WatchEvent' : "{actor} {payload[action]} watching {repository[owner]}/{repository[name]} {url}",
+    'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} {url}",
+    'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} {url}",
 }
 
 # pretty string trunc function

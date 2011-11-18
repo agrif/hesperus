@@ -181,11 +181,12 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         for feed in self.feedmap:
             try:
                 events_new = self.get_events(feed)
+                yield
             except (urllib2.HTTPError, urllib2.URLError):
                 # try again later
                 self.log_warning("fetch failed:", feed)
-                return
-            yield
+                yield
+                continue
             
             channels = self.feedmap[feed]
             old = self.events_cached[feed]

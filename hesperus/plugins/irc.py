@@ -60,8 +60,8 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, inline_commands=bool, alternate_nicks=ET.Element, command_chars=str)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, inline_commands=False, alternate_nicks=None, command_chars="", name_sep_chars=",:"):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None):
         
         super(IRCPlugin, self).__init__(core)
         
@@ -71,16 +71,6 @@ class IRCPlugin(Plugin):
         self.nickserv_password = nickserv_password
         self.chanmap = {}
         self.nickmap = {}
-        self.inline_commands = inline_commands
-        self.nicknames = [nick]
-        
-        if alternate_nicks == None:
-            alternate_nicks = []
-        for el in alternate_nicks:
-            if not el.tag.lower() == 'nick':
-                raise ConfigurationError('alternate-nicks must contain nick tags')
-            self.nicknames.append(el.text.strip())
-        self.nicknames = map(lambda s: s.lower(), self.nicknames)
         
         if channelmap == None:
             channelmap = []
@@ -121,15 +111,6 @@ class IRCPlugin(Plugin):
         for k in self.nickmap:
             self.subscribe(k)
         
-        # create a command-matching re
-        re_chars = "|".join(map(re.escape, command_chars))
-        re_names = "|".join(map(re.escape, self.nicknames))
-        re_names_sep = "|".join(map(re.escape, name_sep_chars))
-        self.command_re = r"(?:%s)\s*(?:%s)\s*" % (re_names, re_names_sep)
-        if len(re_chars) > 0:
-            self.command_re = "(?:%s|%s)" % (self.command_re, re_chars)
-        self.command_re += "(.*)"
-        
         self.bot = IRCPluginBot(self, channels)
         
     def run(self):
@@ -150,23 +131,6 @@ class IRCPlugin(Plugin):
         for k in self.nickmap:
             if irc_nick in self.nickmap[k] and not k in chans:
                 chans.append(k)
-        
-        # some indirect messages may actually be direct, or have
-        # embedded direct messages
-        if not direct:
-            direct_re = "^" + self.command_re + "$"
-            whole = re.match(direct_re, msg, re.IGNORECASE)
-            old_reply = reply
-            if whole:
-                direct = True
-                msg = whole.group(1)
-                reply = lambda s: old_reply(irc_nick + ": " + s)
-            elif self.inline_commands:
-                part = re.search("(?:\(|\[)" + self.command_re + "(?:\)|\])", msg, re.IGNORECASE)
-                if part:
-                    part_msg = part.group(1)
-                    part_reply = lambda s: old_reply(irc_nick + ": " + s)
-                    self.parent.handle_incoming(chans, irc_nick, part_msg, True, part_reply)
         
         self.parent.handle_incoming(chans, irc_nick, msg, direct, reply)
     

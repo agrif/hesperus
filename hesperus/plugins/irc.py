@@ -136,6 +136,7 @@ class IRCPlugin(Plugin):
     
     @Plugin.queued
     def send_outgoing(self, chan, msg):
+        msg = msg.encode('UTF-8')
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:
                 self.bot.connection.privmsg(irc_chan, msg)

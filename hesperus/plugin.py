@@ -193,3 +193,19 @@ class PollPlugin(Plugin):
     
     def poll(self):
         yield
+
+# special case of plugin that looks for patterns in messages and does something with them
+class PassivePlugin(Plugin):
+    @classmethod
+    def register_pattern(cls, regexp):
+        pattern = re.compile(regexp)
+        def wrapper(func):
+            def wrapped(self, chans, name, msg, direct, reply):
+                match = pattern.match(msg)
+                if match:
+                    func(match, reply)
+                    return True
+                else:
+                    return False
+            return wrapped
+        return wrapper

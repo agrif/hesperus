@@ -193,3 +193,21 @@ class PollPlugin(Plugin):
     
     def poll(self):
         yield
+
+# special case of command plugin that looks for patterns in messages and
+#  does something with them
+class PassivePlugin(CommandPlugin):
+    @classmethod
+    def register_pattern(cls, regexp):
+        pattern = re.compile(regexp)
+        def wrapper(func):
+            def wrapped(self, chans, name, msg, direct, reply):
+                match = pattern.search(msg)
+                if match:
+                    func(self, match, reply)
+                    return True
+                else:
+                    return False
+            wrapped._hesperus_command = True
+            return wrapped
+        return wrapper

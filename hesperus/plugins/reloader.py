@@ -38,11 +38,7 @@ class Reloader(CommandPlugin):
                 continue
 
             self.log_verbose("Removing plugin %s" % plugin.__class__.__name__)
-            self.parent.remove_plugin(plugin)
-
-            # Wait for it to actually stop
-            while plugin.thread is not None:
-                time.sleep(0.1)
+            self.parent.remove_plugin(plugin, True)
 
         self.log_verbose("Done unloading plugins... now to reload them")
         # Now that they're all unloaded, reload them:

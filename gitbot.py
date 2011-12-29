@@ -5,7 +5,11 @@ import time, random, sys
 
 ###########################
 
-c = Core.load_from_file(sys.argv[1])
+try:
+    c = Core.load_from_file(sys.argv[1])
+except IndexError:
+    print "Give me a config file to run!"
+
 try:
     c.start()
 except KeyboardInterrupt:

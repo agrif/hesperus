@@ -57,6 +57,9 @@ class CommandPlugin(Plugin):
         if len(re_chars) > 0:
             self.command_re = "(?:%s|%s)" % (self.command_re, re_chars)
         self.command_re += "(.*)"
+        
+        # create a generic name-directed re (matches: nick, message)
+        self.redirection_re = '([^ ]+?)(?:' + re_names_sep + ').*'
     
     def handle_incoming(self, chans, name, msg, direct, reply):
         # skip direct messages, our work is done already
@@ -74,6 +77,13 @@ class CommandPlugin(Plugin):
         elif self.inline:
             part = re.search("(?:\(|\[)" + self.command_re + "(?:\)|\])", msg, re.IGNORECASE)
             if part:
+                # try to detect redirection (e.g. agrif, (!bookmark))
+                redirection = re.match(self.redirection_re, msg, re.IGNORECASE)
+                if redirection:
+                    part_name = redirection.group(1)
+                else:
+                    part_name = name
+                
                 part_msg = part.group(1)
-                part_reply = lambda s: reply(name + ": " + s)
-                self.parent.handle_incoming(chans, name, part_msg, True, part_reply)
+                part_reply = lambda s: reply(part_name + ": " + s)
+                self.parent.handle_incoming(chans, part_name, part_msg, True, part_reply)

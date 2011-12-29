@@ -139,6 +139,21 @@ class Plugin(Agent):
 
 # special case of Plugin that just handles chat commands, given as regexps
 class CommandPlugin(Plugin):
+    """Plugins deriving from this class are meant to implement a command that
+    users issue to the bot and the bot will perform some action and respond.
+
+    It provides a register_command decorator which takes as an argument a
+    regular expression string to match.
+    
+    This class also implements handle_incoming() which will dispatch as
+    appropriate to functions with the register_command decorator applied whose
+    regular expression matches the incoming message.
+
+    The decorated functions are passed as the message the command portion of
+    the message. In other words, the part of the message that matched the given
+    regular expression.
+
+    """
     commands_queued = True
     
     # first, the decorator for defining commands

@@ -4,8 +4,39 @@ from ..core import ConfigurationError, ET
 from ..plugin import Plugin
 
 class CommandPlugin(Plugin):
+    """Install this plugin to supplement plugins that derive from
+    hesperus.plugin.CommandPlugin. This takes public (not direct) messages and
+    tries to parse them in command syntax. If they match, the command is
+    re-emitted as if the command were sent to the bot directly.
+
+    """
     @Plugin.config_types(inline=bool, names=ET.Element, command_chars=str, name_sep_chars=str)
     def __init__(self, core, inline=False, names=None, command_chars="", name_sep_chars=",:"):
+        """Options:
+
+        inline
+            specifies if messages are searched for commands that appear
+            surrounded in parentheses somewhere in the middle of the message.
+            Otherwise, only matches the exact command forms.
+
+        names
+            An ET.Element filled with names that this bot will respond to.
+
+        name_sep_chars
+            A string of characters that can act as a separator between the name
+            and the command.
+
+        command_chars
+            A string of characters that may prefix a command. Good options are:
+            ! or .
+
+
+        In other words, the bot will respond to commands in the forms:
+            name whitespace name_sep whitespace command
+        or
+            command_char command
+
+        """
         super(CommandPlugin, self).__init__(core)
         
         self.inline = inline

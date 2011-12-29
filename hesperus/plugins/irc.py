@@ -115,6 +115,9 @@ class IRCPlugin(Plugin):
         
     def run(self):
         self.log_verbose("connecting...")
+        # start() calls _connect() and then ircobj.process_forever()... since
+        # we want to be in control of the main loop, just call _connect() for
+        # now.
         #self.bot.start()
         self.bot._connect()
         while True:

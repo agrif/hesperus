@@ -8,6 +8,7 @@ class Core(Agent):
     def load_from_file(cls, fname):
         config = ET.parse(fname).getroot()
         c = Core()
+        c.configfile = fname
         
         for el in config:
             if el.tag.lower() == 'plugin':

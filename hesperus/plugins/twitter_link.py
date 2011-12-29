@@ -22,7 +22,6 @@ class TwitterLinkPlugin(PassivePlugin):
         try:
             status = html_entity_unescape(self.twitter_api.GetStatus(sid).text)
         except twitter.TwitterError, error:
-            reply('Twitter error: ' + error.message)
+            self.log_warning('Twitter error:', error.message)
         else:
             reply('%s tweeted: %s' % (user, status))
-    

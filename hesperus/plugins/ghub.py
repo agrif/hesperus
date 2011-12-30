@@ -1,5 +1,6 @@
 import time
 import urllib2
+from urllib import urlencode
 import json
 import re
 from datetime import datetime
@@ -80,11 +81,66 @@ class AutoDelayGitHub:
         self.lasttime = time()
         return getattr(self.gh, name)
 
+class MiniGithubAPI(object):
+    """For version 3 of the API, since the py-github libraries use the older
+    version and try to parse github's xml that is occasionally malformed.
+
+    This lib is dead simple: you pass in the URL and a dict of query args, and
+    this returns the JSON. GET requests only, no authentication, just data
+    retrieval.
+
+    See http://developer.github.com/v3/
+    """
+    def __init__(self, baseurl=None, delay=1.0):
+        if not baseurl:
+            self.baseurl = "https://api.github.com"
+        else:
+            self.baseurl = baseurl
+        self.delay = delay
+        self.lasttime = 0
+
+    def query(self, url, args=None, raw=False):
+        """Give a url such as:
+            /repos/someuser/somerepo/branches
+
+        args is a dictionary with any additional query parameters to pass, such
+        as pagination options
+
+        raw mode will set the accept header to application/vnd.github.raw,
+        which will not return a json decoded object but rather the raw string
+        data that github sends.
+        """
+        if url.startswith(self.baseurl):
+            pass
+        elif not url.startswith("/"):
+            raise ValueError("That doesn't look like a URL path")
+        else:
+            url = self.baseurl + url
+
+        while time() < self.lasttime + self.delay:
+            sleep(self.lasttime + self.delay - time())
+        self.lasttime = time()
+
+        if args:
+            argstring = "?" + urlencode(args)
+        else:
+            argstring = ""
+
+        completeurl = url + argstring
+        reqobj = urllib2.Request(completeurl)
+        if raw:
+            reqobj.add_header("Accept", "application/vnd.github.raw")
+        request = urllib2.urlopen(reqobj)
+
+        if raw:
+            return request.read()
+        return json.load(request)
+
 class GitHubPlugin(CommandPlugin, PollPlugin):
     poll_interval = 50
     commands_queued = False
     
-    @PollPlugin.config_types(feedmap=ET.Element, issues_default_user=str, issues_default_repo=str)
+    @PollPlugin.config_types(feedmap=ET.Element, default_user=str, default_repo=str)
     def __init__(self, core, feedmap=None, default_user="agrif", default_repo="hesperus"):
         super(GitHubPlugin, self).__init__(core)
         
@@ -110,6 +166,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
                 self.feedmap[feed_url].append(channel)
         
         self.gh = AutoDelayGitHub()
+        self.gh3 = MiniGithubAPI()
         
     def get_events(self, url):
         #self.log_debug("fetching", url)
@@ -260,7 +317,7 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         if len(issues) == 0:
             reply("no issues found :(")
     
-    @CommandPlugin.register_command(r"([^\:]+)\:([0-9]+)(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
+    @CommandPlugin.register_command(r"([^:]+):([0-9]+)(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
     def file_line_command(self, chans, name, match, direct, reply):
         fname = match.group(1)
         lineno = match.group(2)
@@ -272,6 +329,104 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         if branch is None:
             branch = "master"
         
+        # Get the tree for the specified branch or commit
+        try:
+            tree = self.gh3.query("/repos/{user}/{repo}/git/trees/{branch}".format(
+                user=user,repo=repo,branch=branch),
+                    dict(recursive=1))
+        except urllib2.HTTPError:
+            reply("I couldn't find that user or branch. Sorry!")
+            return
+
+        # Look through it to find the file we're looking for
+        for fileinfo in tree['tree']:
+            if fileinfo['path'] == fname:
+                break
+            # Also match the filename even if the path wasn't correct
+            if fileinfo['path'].endswith(fname):
+                break
+        else:
+            reply("Sorry, I couldn't locate that file in %s/%s" % (user,branch))
+            return
+
+        if fileinfo['type'] == "tree":
+            reply("That's not a file, that's a directory!")
+            return
+
+        # Blob requests for empty files returns 404 from the github api
+        # apparently
+        if fileinfo['size'] == 0:
+            reply("That file appears to be empty.")
+            return
+
+        # At this point, we have the file's info in fileinfo
+        # Correct for the path if just a filename was given but we found it in
+        # a sub-folder
+        fname = fileinfo['path'].encode("UTF-8")
+
+
+        # Download that file
+        file_contents = self.gh3.query(fileinfo['url'], raw=True)
+
+        # Do a quick check to see if it's a binary file
+        if "\0" in file_contents:
+            reply("Hey! Just what do you think you're trying to pull?")
+            return
+
+        file_lines = file_contents.split("\n")
+
+        lineno = int(lineno)
+        if lineno == 0:
+            reply("There is no line zero")
+            return
+
+        if len(file_lines) < lineno:
+            reply("That file doesn't have that many lines! It only has %s" % len(file_lines))
+            return
+
+        reply("File %s line %s:" % (fname, lineno))
+
+        # Reply with the line itself
+        line = file_lines[lineno-1]
+        if len(line) > 80:
+            line = line[:77] + "..."
+        # Don't print a blank line
+        if line.strip():
+            reply(line)
+
+        # Search backwards for the first function definition line
+        wslen = lambda s: len(re.match(r"\s*", s).group())
+        whitespace = wslen(line)
+
+        funcmatch = re.compile(r"(\s*)def (\w+)\(")
+        methmatch = re.compile(r"(\s*)def (\w+)\(self")
+        classmatch = re.compile(r"(\s*)class (\w+)\(")
+
+        if lineno > 1:
+            for otherline in reversed(file_lines[:lineno-1]):
+                # Ignore blank lines
+                if not otherline.strip():
+                    continue
+                
+                # Check this line
+                mmatched = methmatch.match(otherline)
+                fmatched = funcmatch.match(otherline)
+                cmatched = classmatch.match(otherline)
+                if mmatched and len(mmatched.group(1)) < whitespace:
+                    reply("In method %s()" % mmatched.group(2))
+                elif fmatched and len(fmatched.group(1)) < whitespace:
+                    reply("In function %s()" % fmatched.group(2))
+                elif cmatched and len(cmatched.group(1)) < whitespace:
+                    reply("In class %s" % cmatched.group(2))
+
+                if wslen(otherline) < whitespace:
+                    # It didn't match but we went down an indent level? Don't match
+                    # function defs or class defs at this level anymore
+                    whitespace = wslen(otherline)
+
+
+        # Reply with the link to github anchored at that line number
         url_format = "https://github.com/{user}/{repo}/blob/{branch}/{fname}#L{lineno}"
-        reply(_short_url(url_format.format(
+        reply(short_url(url_format.format(
                     user=user, repo=repo, branch=branch, fname=fname, lineno=lineno)))
+

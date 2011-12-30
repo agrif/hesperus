@@ -154,6 +154,8 @@ class CommandPlugin(Plugin):
     regular expression.
 
     """
+    # If true, incomming messages will be added to the agent's built-in queue
+    # and handled in the plugin's thread instead of the core thread
     commands_queued = True
     
     # first, the decorator for defining commands

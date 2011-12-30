@@ -1,6 +1,7 @@
-from agent import Agent
 import time
+import traceback
 
+from agent import Agent
 from plugin import Plugin, ConfigurationError, ET
 
 class Core(Agent):
@@ -39,15 +40,22 @@ class Core(Agent):
     
     def run(self):
         while True:
+            toremove = []
             for plug in self.plugins:
+                # There was an error in the plugin's thread that happened asynchronously
                 if plug.error:
                     # print out error, and quit
                     self.log_error("error in", plug)
+                    self.send_outgoing("default", "One of my plugins, %s, has crashed. Someone call for help plz!"
+                            % (plug.__class__.__name__,))
                     with self.__class__.stdout_lock:
                         print plug.error[1],
-                    return
+                    # Can't remove the plugin while we're iterating over the list
+                    toremove.append(plug)
                 
-                yield
+            for r in toremove:
+                self.remove_plugin(r)
+            yield
     
     #
     # plugin management
@@ -79,10 +87,22 @@ class Core(Agent):
     
     @Agent.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
+        toremove = []
         for plug in self.plugins:
             relevant_chans = set(plug.channels).intersection(set(chans))
             if len(relevant_chans) > 0:
-                plug.handle_incoming(chans, name, msg, direct, reply)
+                try:
+                    plug.handle_incoming(chans, name, msg, direct, reply)
+                except Exception:
+                    # An exception occurred in the main thread while calling
+                    # into the plugin's handle_incomming method
+                    traceback.print_exc()
+                    reply("Oh dear, there was a problem in the %s plugin. I'm shutting it down." %
+                            (plug.__class__.__name__,))
+                    # Can't remove the plugin while we're iterating over the list
+                    toremove.append(plug)
+        for r in toremove:
+            self.remove_plugin(r)
     
     @Agent.queued
     def send_outgoing(self, chan, msg):

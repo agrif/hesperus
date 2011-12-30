@@ -138,6 +138,8 @@ class MiniGithubAPI(object):
 
 class GitHubPlugin(CommandPlugin, PollPlugin):
     poll_interval = 50
+    # Run command callbacks (register_command decorated methods) in the main
+    # thread, not in the plugin's thread
     commands_queued = False
     
     @PollPlugin.config_types(feedmap=ET.Element, default_user=str, default_repo=str)

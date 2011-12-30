@@ -387,12 +387,12 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         reply("File %s line %s:" % (fname, lineno))
 
         # Reply with the line itself
-        line = file_lines[lineno-1]
+        line = file_lines[lineno-1].rstrip()
         if len(line) > 80:
             line = line[:77] + "..."
         # Don't print a blank line
         if line.strip():
-            reply(line)
+            reply(line.lstrip())
 
         # Search backwards for the first function definition line
         wslen = lambda s: len(re.match(r"\s*", s).group())

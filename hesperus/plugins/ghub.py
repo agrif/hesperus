@@ -420,8 +420,8 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
                     reply("In class %s" % cmatched.group(2))
 
                 if wslen(otherline) < whitespace:
-                    # It didn't match but we went down an indent level? Don't match
-                    # function defs or class defs at this level anymore
+                    # Went down an indent level? Don't match function defs or
+                    # class defs at this level anymore
                     whitespace = wslen(otherline)
 
 

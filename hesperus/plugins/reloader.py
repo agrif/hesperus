@@ -1,4 +1,5 @@
 import time
+import traceback
 
 from ..plugin import CommandPlugin, Plugin
 from ..core import ConfigurationError, ET
@@ -26,7 +27,7 @@ class Reloader(CommandPlugin):
     @CommandPlugin.register_command("reload")
     def reload(self, chans, name, match, direct, reply):
         self.log_message("Reloading plugins...")
-        reply("Reloading all plugins.. STAND BY!")
+        reply("Yes sir!")
 
         for plugin in list(self.parent.plugins):
             if plugin is self:
@@ -42,11 +43,12 @@ class Reloader(CommandPlugin):
 
             # Wait for it to actually stop
             while plugin.thread is not None:
-                time.sleep(0.1)
+                time.sleep(0.5)
 
         self.log_verbose("Done unloading plugins... now to reload them")
         # Now that they're all unloaded, reload them:
         config = ET.parse(self.parent.configfile).getroot()
+        errorlist = []
         for el in config:
             if el.tag.lower() == 'plugin':
                 # Before we go and call Plugin.load_plugin, we need to get a
@@ -63,11 +65,32 @@ class Reloader(CommandPlugin):
 
                 self.log_verbose("Reloading module %s for plugin %s" % (modulename, pluginname))
                 mod = __import__(modulename, fromlist=[pluginname])
-                newmod = reload(mod)
+                try:
+                    newmod = reload(mod)
+                except Exception, e:
+                    traceback.print_exc()
+                    errorlist.append(pluginname)
+                else:
 
-                self.log_verbose("Loading plugin %s" % pluginname)
-                plugin = Plugin.load_plugin(self.parent, el)
-                self.parent.add_plugin(plugin)
+                    self.log_verbose("Loading plugin %s" % pluginname)
+                    try:
+                        plugin = Plugin.load_plugin(self.parent, el)
+                    except ConfigurationError, e:
+                        errorlist.append(pluginname)
+                    else:
+                        self.parent.add_plugin(plugin)
                 
 
-        reply("Done! Phew, I always get a bit nervous when I do that")
+        if not errorlist:
+            reply("Reload complete, boss!")
+        else:
+            if len(errorlist) == 1:
+                reply("Sorry boss, I couldn't reload %s" % errorlist[0])
+            elif len(errorlist) == 2:
+                reply("Sorry boss, I couldn't reload %s" % " and ".join(errorlist))
+            else:
+                s = ", ".join(errorlist[:-1])
+                s += ", and " + errorlist[-1]
+                reply("Sorry boss, I couldn't reload %s" % s)
+            
+        self.log_message("Reloading complete")

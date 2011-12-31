@@ -73,17 +73,25 @@ class Core(Agent):
                 if self.running and not plug.running:
                     plug.start_threaded()
     
-    def remove_plugin(self, plug):
+    def remove_plugin(self, plug, wait=False):
         with self.lock:
             if plug in self._plugins:
                 self._plugins.remove(plug)
                 if plug.running:
                     plug.stop()
+                    if wait:
+                        while plug.thread is not None:
+                            time.sleep(0.1)
     
-    def remove_all_plugins(self):
+    def remove_all_plugins(self, wait=False):
         with self.lock:
+            plugins_copy = list(self._plugins)
             while len(self._plugins) > 0:
                 self.remove_plugin(self._plugins[0])
+            if wait:
+                while not all(map(lambda plugin: plugin.thread is None, plugins_copy)):
+                    time.sleep(0.1)
+                
     
     @Agent.queued
     def handle_incoming(self, chans, name, msg, direct, reply):

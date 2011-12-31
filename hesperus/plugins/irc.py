@@ -4,6 +4,7 @@ from ..core import ConfigurationError, ET
 from ..plugin import Plugin
 import re
 import string
+import time
 
 class IRCPluginBot(IRCBot):
     def __init__(self, plugin, channels):
@@ -60,8 +61,8 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, quitmsg=str)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsg="Daisy, Daisy..."):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, quitmsgs=ET.Element)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsgs=None):
         
         super(IRCPlugin, self).__init__(core)
         
@@ -71,7 +72,6 @@ class IRCPlugin(Plugin):
         self.nickserv_password = nickserv_password
         self.chanmap = {}
         self.nickmap = {}
-        self.quitmsg = quitmsg
         
         if channelmap == None:
             channelmap = []
@@ -102,6 +102,12 @@ class IRCPlugin(Plugin):
                 self.nickmap[channel] = [irc_nick]
             else:
                 self.nickmap[channel].append(irc_nick)
+
+        if quitmsgs is None or len(quitmsgs) is 0:
+            self.quitmsg = 'Daisy, daisy...'
+        else:
+            self.quitmsg = filter(lambda el: el.tag.lower() == 'quitmsg',
+                quitmsgs)[int(time.time()) % len(quitmsgs)].text
         
         channels = []
         for k in self.chanmap:

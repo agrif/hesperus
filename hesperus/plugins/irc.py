@@ -60,8 +60,8 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
-    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None):
+    @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, quitmsg=str)
+    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsg="Daisy, Daisy..."):
         
         super(IRCPlugin, self).__init__(core)
         
@@ -71,6 +71,7 @@ class IRCPlugin(Plugin):
         self.nickserv_password = nickserv_password
         self.chanmap = {}
         self.nickmap = {}
+        self.quitmsg = quitmsg
         
         if channelmap == None:
             channelmap = []
@@ -120,9 +121,15 @@ class IRCPlugin(Plugin):
         # now.
         #self.bot.start()
         self.bot._connect()
-        while True:
-            self.bot.ircobj.process_once()
-            yield
+        try:
+            while True:
+                self.bot.ircobj.process_once()
+                yield
+        finally:
+            # Apparently, IRC servers only use your quit message if you've been
+            # connected for more than 5 minutes (according to a comment in
+            # irclib). No idea why.
+            self.bot.disconnect(self.quitmsg)
     
     @Plugin.queued
     def do_input(self, irc_channels, irc_nick, msg, direct, reply):

@@ -22,6 +22,7 @@ class IRCPluginBot(IRCBot):
             self.connection.privmsg("NickServ", "identify " + self.plugin.nickserv_password)
         for chan in self.initial_channels:
             c.join(chan)
+        self.plugin.connected = True
     
     def strip_nonprintable(self, s):
         return filter(lambda c: c in string.printable, s)
@@ -119,6 +120,15 @@ class IRCPlugin(Plugin):
             self.subscribe(k)
         
         self.bot = IRCPluginBot(self, channels)
+
+    @property
+    def connected(self):
+        with self.lock:
+            return getattr(self, "_connected", False)
+    @connected.setter
+    def connected(self, value):
+        with self.lock:
+            self._connected = value
         
     def run(self):
         self.log_verbose("connecting...")

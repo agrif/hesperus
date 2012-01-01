@@ -75,6 +75,7 @@ class Agent(object):
         except Exception, e:
             with self.lock:
                 self._error = (e, format_exc())
+                self.log_debug("Thread for %s has crashed!" % self.__class__.__name__)
                 if self._thread == None:
                     raise
         finally:

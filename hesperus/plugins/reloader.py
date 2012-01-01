@@ -16,7 +16,6 @@ class Reloader(CommandPlugin):
         super(Reloader, self).__init__(core)
 
         self.skip = set()
-        self.skip.add(self.__class__.__name__)
         if skip == None:
             skip = []
         for el in skip:
@@ -24,27 +23,51 @@ class Reloader(CommandPlugin):
                 raise ConfigurationError('skip must contain name tags')
             self.skip.add(el.text.strip())
 
-    @CommandPlugin.register_command("reload")
+    @CommandPlugin.register_command(r"reload(?: (\w+))?")
     def reload(self, chans, name, match, direct, reply):
         self.log_message("Reloading plugins...")
+
+        # Get the set of current plugins
+        toreload = set(x.__class__.__name__ for x in list(self.parent.plugins))
+
+        if match.group(1):
+            # A specific plugin was requested for reload
+            if not match.group(1) in toreload:
+                reply("I'm not running a plugin called %s!" % match.group(1))
+                return
+            toreload = set([match.group(1)])
+
+        else:
+            # Reload all but the ones in the skip list
+            toreload.difference_update(self.skip)
+            if not toreload:
+                reply("No plugins to reload. Specify a specific plugin to reload with 'reload <pluginname>'")
+                return
+
+        self.log_debug("Reloading these plugins: %r" % (toreload,))
         reply("Yes sir!")
 
+        oldircplugin = None
         for plugin in list(self.parent.plugins):
-            if plugin is self:
-                self.log_debug("Skipping reloader plugin")
-                continue
 
-            if plugin.__class__.__name__ in self.skip:
-                self.log_debug("Skipping %s as per configuration" % plugin.__class__.__name__)
+            pluginname = plugin.__class__.__name__
+
+            if pluginname == "IRCPlugin":
+                oldircplugin = plugin
+
+            if pluginname not in toreload:
                 continue
 
             self.log_verbose("Removing plugin %s" % plugin.__class__.__name__)
-            self.parent.remove_plugin(plugin, True)
+            # Remove the plugin. Only wait for it to unload if we're not unloading ourself
+            self.parent.remove_plugin(plugin, pluginname != self.__class__.__name__)
 
         self.log_verbose("Done unloading plugins... now to reload them")
+
         # Now that they're all unloaded, reload them:
         config = ET.parse(self.parent.configfile).getroot()
         errorlist = []
+        ircplugin = None
         for el in config:
             if el.tag.lower() == 'plugin':
                 # Before we go and call Plugin.load_plugin, we need to get a
@@ -54,9 +77,8 @@ class Reloader(CommandPlugin):
                 plug_type = el.get('type')
                 modulename, pluginname = plug_type.rsplit(".", 1)
 
-                # Check if this is one of the to-be-skipped plugins
-                if pluginname in self.skip:
-                    self.log_debug("Not reloading %s from module %s" % (pluginname, modulename))
+                # Check if this is one of the plugins we're supposed to load
+                if pluginname not in toreload:
                     continue
 
                 self.log_verbose("Reloading module %s for plugin %s" % (modulename, pluginname))
@@ -76,6 +98,28 @@ class Reloader(CommandPlugin):
                     else:
                         self.parent.add_plugin(plugin)
                 
+                # Special provisions for reloading the IRC plugin, since the
+                # reply() method will no longer be valid
+                if pluginname == "IRCPlugin":
+                    ircplugin = plugin
+                
+
+        if ircplugin and oldircplugin:
+            # We have reloaded the ircplugin. We cannot use the given reply()
+            # method because that connection to the server has been severed.
+            # XXX Terrible hack incomming!!! Warning!
+            # The old IRCPlugin object is still hanging around in memory.  We
+            # cannot edit the reply() method or even know what it does, but we
+            # CAN replace the connection object in the old IRCPlugin object
+            # with the new one.
+            # If we survive the rest of this method, we should be okay since
+            # the old IRCPlugin object should be garbage collected very soon.
+            self.log_debug("Waiting for IRC to re-connect")
+            while not ircplugin.connected:
+                time.sleep(0.5)
+            oldircplugin.bot.connection = ircplugin.bot.connection
+            self.log_debug("IRC connected. Swapping connection object and proceeding to reply...")
+            time.sleep(1)
 
         if not errorlist:
             reply("Reload complete, boss!")
@@ -88,5 +132,13 @@ class Reloader(CommandPlugin):
                 s = ", ".join(errorlist[:-1])
                 s += ", and " + errorlist[-1]
                 reply("Sorry boss, I couldn't reload %s" % s)
+
             
         self.log_message("Reloading complete")
+
+    @CommandPlugin.register_command("listplugins")
+    def list_command(self, chans, name, match, direct, reply):
+        reply("I'm currently running the following plugins: %s" %
+                ", ".join(p.__class__.__name__ for p in self.parent.plugins)
+                )
+

@@ -215,14 +215,24 @@ class PollPlugin(Plugin):
 #  does something with them
 class PassivePlugin(CommandPlugin):
     @classmethod
-    def register_pattern(cls, regexp):
+    def register_pattern(cls, regexp, ignore_direct=False):
+        """The decorated method will be called for every line of chat that matches the given regexp.
+        You can return True to indicate no other command handlers will be
+        called; the line was "hanlded". Otherwise, other commands that may also
+        match will also be called.
+
+        if ignore_direct is true, ignores messages that are directed
+        specifically at us
+
+        """
         pattern = re.compile(regexp)
         def wrapper(func):
             def wrapped(self, chans, name, msg, direct, reply):
+                if direct and ignore_direct:
+                    return False
                 match = pattern.search(msg)
                 if match:
-                    func(self, match, reply)
-                    return True
+                    return func(self, match, reply)
                 else:
                     return False
             wrapped._hesperus_command = True

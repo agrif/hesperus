@@ -433,3 +433,132 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         reply(short_url(url_format.format(
                     user=user, repo=repo, branch=branch, fname=fname, lineno=lineno)))
 
+
+class Feed(object):
+    def __init__(self, url, channels, gh3):
+        self.url = url
+        self.channels = channels
+        self.lastupdate = None
+        self.gh3 = gh3
+
+    def _fetch(self):
+        return self.gh3.query(self.url)
+
+    def get_new_events(self):
+        newevents = []
+        allevents = self._fetch()
+
+        # Store lastupdate as a string, lexographic ordering should work just
+        # fine. No need to parse the date.
+        if not self.lastupdate:
+            self.lastupdate = allevents[0]['created_at']
+            #return []
+
+        for event in allevents:
+            if event['created_at'] > self.lastupdate:
+                newevents.append(event)
+
+        self.lastupdate = allevents[0]['created_at']
+
+        newevents.reverse()
+        return newevents
+
+    # So these items can be added to sets properly
+    def __hash__(self):
+        return hash(self.url)
+    def __eq__(self, other):
+        return self.url == other.url
+
+    def __str__(self):
+        return "<Feed for %s in channels %r>" % (self.url, self.channels)
+
+
+class GitHubEventMonitorV3(PollPlugin):
+    """Monitors one or more GitHub event feeds from version 3 of their api
+    described here:
+
+        http://developer.github.com/v3/events/
+
+    """
+
+    poll_interval = 60
+    
+    @PollPlugin.config_types(feedmap=ET.Element)
+    def __init__(self, core, feedmap=None):
+        super(GitHubEventMonitorV3, self).__init__(core)
+
+        self.gh3 = MiniGithubAPI()
+        
+        # Maps feed urls to Feed objects
+        self.feeds = {}
+
+        if feedmap == None:
+            feedmap = []
+        for el in feedmap:
+            if not el.tag.lower() == 'feed':
+                raise ConfigurationError('feedmap must contain feed tags')
+            channel = el.get('channel', None)
+            feed_url = el.text
+            if not channel or not feed_url:
+                raise ConfigurationError('invalid feed tag')
+            
+            if not feed_url in self.feeds:
+                self.feeds[feed_url] = Feed(feed_url, [channel], gh3=self.gh3)
+            else:
+                self.feeds[feed_url].channels.append(channel)
+
+    def poll(self):
+        """Called eery poll_interval seconds. Also we should yield every once
+        in a while to let the queue process
+
+        """
+        event_types = {
+                'PushEvent': self._handle_push_event,
+                }
+
+        for feed in self.feeds.itervalues():
+            for event in feed.get_new_events():
+                # Call to the appropriate event handler
+                if event['type'] in event_types:
+                    reply = event_types[event['type']](event)
+                    if reply:
+                        for chan in feed.channels:
+                            self.parent.send_outgoing(chan, reply)
+            yield
+
+    def _handle_push_event(self, event):
+        payload = event['payload']
+        # Ignore size zero pushes (which can happen e.g. doing a re-wind push
+        # that doesn't push any new commits but sets the branch to a different
+        # already-existing commit
+        numcommits = payload['size']
+        if numcommits < 1:
+            return
+
+        if numcommits == 1:
+            # Handle this specially. Print out a bit from the commit message.
+            commit = payload['commits'][0]
+            commitmsg = commit['message'].split("\n")[0]
+            branch = event['repo']['name']
+            pusher = event['actor']['login']
+            if len(commitmsg) >= 80:
+                commitmsg = commitmsg[:76] + "..."
+            url = "https://github.com/%s/commit/%s" % (event['repo']['name'], commit['sha'])
+            replystr = "%s pushed to %s: \"%s\" %s" % (pusher, branch, commitmsg, _short_url(url))
+        else:
+            # Pushed a number of commits at once.
+            branch = event['repo']['name']
+            pusher = event['actor']['login']
+            
+            # We need to find the first commit in the series, so we can find
+            # its parent, since for the compare we want the range from the
+            # first commit's parent to the last commit.
+            firstcommit = self.gh3.query(payload['commits'][0]['url'])
+
+            url = "https://github.com/%s/compare/%s...%s" % (event['repo']['name'],
+                    firstcommit['parents'][0]['sha'],
+                    payload['commits'][-1]['sha'],
+                    )
+            replystr = "%s pushed %s commits to %s %s" % (pusher, numcommits, branch, _short_url(url))
+
+        return replystr

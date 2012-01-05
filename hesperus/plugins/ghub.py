@@ -169,6 +169,8 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         
         self.gh = AutoDelayGitHub()
         self.gh3 = MiniGithubAPI()
+
+        self.firstrun = True
         
     def get_events(self, url):
         #self.log_debug("fetching", url)
@@ -229,14 +231,13 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             event['url'] = _short_url(event['url'])
         return event
     
-    def start(self):
-        # fetch the initial cache of events
-        for url in self.feedmap:
-            self.events_cached[url] = self.get_events(url)
-        
-        super(GitHubPlugin, self).start()
-    
     def poll(self):
+        if self.firstrun:
+            # fetch the initial cache of events
+            for url in self.feedmap:
+                self.events_cached[url] = self.get_events(url)
+            self.firstrun = False
+
         for feed in self.feedmap:
             try:
                 events_new = self.get_events(feed)

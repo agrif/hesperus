@@ -1,5 +1,6 @@
 import time
 import traceback
+import random
 
 from ..plugin import CommandPlugin, Plugin
 from ..core import ConfigurationError, ET
@@ -27,27 +28,33 @@ class Reloader(CommandPlugin):
     def reload(self, chans, name, match, direct, reply):
         self.log_message("Reloading plugins...")
 
-        # Get the set of current plugins
-        toreload = set(x.__class__.__name__ for x in list(self.parent.plugins))
+        # Get the set of current plugin names
+        loadedplugins = set(x.__class__.__name__ for x in list(self.parent.plugins))
 
         if match.group(1):
             # A specific plugin was requested for reload
-            if not match.group(1) in toreload:
-                reply("I'm not running a plugin called %s!" % match.group(1))
-                return
             toreload = set([match.group(1)])
 
         else:
             # Reload all but the ones in the skip list
-            toreload.difference_update(self.skip)
+            toreload = loadedplugins.difference(self.skip)
             if not toreload:
                 reply("No plugins to reload. Specify a specific plugin to reload with 'reload <pluginname>'")
                 return
 
         self.log_debug("Reloading these plugins: %r" % (toreload,))
-        reply("Yes sir!")
+        affirms = ["Yes sir!", "Right away sir!", "Sure thing, boss!", "You got it!"]
+        if not match.group(1) or match.group(1) in loadedplugins:
+            # Only do this reply if we're either reloading everything or if
+            # we're loading a specific plugin that is already loaded.
+            # Skip the case of reloading a plugin that is not loaded, we don't
+            # know yet whether it exists to load or doesn't exist at all.
+            reply(random.choice(affirms))
 
+        #############
+        # Unload procedure
         oldircplugin = None
+        foundunload = False
         for plugin in list(self.parent.plugins):
 
             pluginname = plugin.__class__.__name__
@@ -58,16 +65,20 @@ class Reloader(CommandPlugin):
             if pluginname not in toreload:
                 continue
 
+            foundunload = True
+
             self.log_verbose("Removing plugin %s" % plugin.__class__.__name__)
             # Remove the plugin. Only wait for it to unload if we're not unloading ourself
             self.parent.remove_plugin(plugin, pluginname != self.__class__.__name__)
 
         self.log_verbose("Done unloading plugins... now to reload them")
 
-        # Now that they're all unloaded, reload them:
+        #############
+        # (Re-)load procedure
         config = ET.parse(self.parent.configfile).getroot()
         errorlist = []
         ircplugin = None
+        foundreload = False
         for el in config:
             if el.tag.lower() == 'plugin':
                 # Before we go and call Plugin.load_plugin, we need to get a
@@ -80,6 +91,8 @@ class Reloader(CommandPlugin):
                 # Check if this is one of the plugins we're supposed to load
                 if pluginname not in toreload:
                     continue
+
+                foundreload = True
 
                 self.log_verbose("Reloading module %s for plugin %s" % (modulename, pluginname))
                 mod = __import__(modulename, fromlist=[pluginname])
@@ -94,6 +107,7 @@ class Reloader(CommandPlugin):
                     try:
                         plugin = Plugin.load_plugin(self.parent, el)
                     except ConfigurationError, e:
+                        self.log_message("Configuration error in %s: %s" % (pluginname,e,))
                         errorlist.append(pluginname)
                     else:
                         self.parent.add_plugin(plugin)
@@ -121,8 +135,17 @@ class Reloader(CommandPlugin):
             self.log_debug("IRC connected. Swapping connection object and proceeding to reply...")
             time.sleep(1)
 
-        if not errorlist:
-            reply("Reload complete, boss!")
+        if match.group(1) and not foundunload and not foundreload:
+            # A specific plugin was requested but it was neither unloaded or
+            # reloaded.
+            reply("There is no such plugin to reload!")
+        elif not errorlist:
+            if match.group(1) and not foundunload:
+                reply("Loaded %s!" % match.group(1))
+            elif match.group(1) and not foundreload:
+                reply("Unloaded %s!" % match.group(1))
+            else:
+                reply("Reload complete, boss!")
         else:
             if len(errorlist) == 1:
                 reply("Sorry boss, I couldn't reload %s" % errorlist[0])

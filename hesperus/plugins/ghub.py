@@ -438,8 +438,13 @@ class Feed(object):
     def __init__(self, url, channels, gh3):
         self.url = url
         self.channels = channels
-        self.lastupdate = None
         self.gh3 = gh3
+
+        # Go ahead and do the initial fetch to see the most recent entry
+        # Store lastupdate as a string, lexographic ordering should work just
+        # fine. No need to parse the date.
+        events = self._fetch()
+        self.lastupdate = events[0]['created_at']
 
     def _fetch(self):
         return self.gh3.query(self.url)
@@ -447,12 +452,6 @@ class Feed(object):
     def get_new_events(self):
         newevents = []
         allevents = self._fetch()
-
-        # Store lastupdate as a string, lexographic ordering should work just
-        # fine. No need to parse the date.
-        if not self.lastupdate:
-            self.lastupdate = allevents[0]['created_at']
-            #return []
 
         for event in allevents:
             if event['created_at'] > self.lastupdate:

@@ -44,6 +44,7 @@ class Plugin(Agent):
         try:
             plug = plugcls(core, **kwargs)
         except TypeError, e:
+            traceback.print_exc()
             raise ConfigurationError(str(e))
         
         for chan in plug_channels:

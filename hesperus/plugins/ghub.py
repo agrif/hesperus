@@ -508,7 +508,7 @@ class GitHubEventMonitorV3(PollPlugin):
                 self.feeds[feed_url].channels.append(channel)
 
     def poll(self):
-        """Called eery poll_interval seconds. Also we should yield every once
+        """Called every poll_interval seconds. Also we should yield every once
         in a while to let the queue process
 
         """

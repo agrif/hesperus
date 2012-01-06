@@ -73,7 +73,7 @@ class RSSWatcher(PollPlugin):
     </plugin>
 
     """
-    poll_interval = 30
+    poll_interval = 60
     ratelimit = 5
 
     @PollPlugin.config_types(feeds=ET.Element)

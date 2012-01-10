@@ -5,6 +5,41 @@ from traceback import format_exc
 from ansi import colored
 
 class Agent(object):
+    """An agent is a class whose instances follow a standard protocol for
+    running and for communicating with other agents.
+
+    Agents may or may not run in their own thread.
+
+    From the class's point of view, execution enters an Agent object in two
+    places.
+    
+    First, the run() method may be used for asynchronous tasks. The run method
+    should be a python generator, and it must "yield" once in a while to
+    cooperatively yield execution to tasks that may be running in the same
+    thread.
+
+    Second, execution may enter any method of the object called externally.
+    This method is executed in the caller's thread by default. If, however, the
+    method is decorated with @Agent.queued, the method call will be queued and
+    run asynchronously from the caller's point of view. The method will be
+    executed as one of the tasks that happens while run() is yielded
+
+    From an external point of view, usage depends on whether the Agent is to
+    run in its own thread.
+
+    If the agent is to have its own thread, the caller must make an instance
+    and then call start_threaded(). This will launch a thread to handle the
+    Agent's run() method as well as asynchronous callbacks.
+
+    If the agent is not to have its own thread, the caller must call the
+    agent's run() method to get the generator object, and then call its next()
+    method periodically.
+    
+    If the agent is to become the master of the current thread, the caller can
+    just call start(), which does not return.
+
+    """
+
     stdout_lock = threading.RLock()
     
     def __init__(self, daemon=False):
@@ -16,6 +51,9 @@ class Agent(object):
         self.queue = Queue(1000)
     
     # decorator to force a function to execute in the Agent's thread
+    # XXX If the agent is not running in its own thread, will queue()'d method
+    # ever get called? self.thread would be None and that condition would never
+    # be true, but there's nothing checking the other end of the queue, right?
     @classmethod
     def queued(cls, func):
         def queued_intern(self, *args, **kwargs):

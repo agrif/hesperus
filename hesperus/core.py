@@ -5,6 +5,15 @@ from agent import Agent
 from plugin import Plugin, ConfigurationError, ET
 
 class Core(Agent):
+    """The core is an Agent that controls the main thread. Its job is to load
+    and manage all the plugins, and to relay messages between plugins.
+
+    When a plugin calls our handle_incoming() method, the message is relayed to
+    all plugins according to the message's channel and the plugins' channels.
+
+    Similarly for when a plugin calls our send_outgoing() method.
+
+    """
     @classmethod
     def load_from_file(cls, fname):
         config = ET.parse(fname).getroot()

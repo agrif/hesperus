@@ -22,7 +22,8 @@ class Agent(object):
     This method is executed in the caller's thread by default. If, however, the
     method is decorated with @Agent.queued, the method call will be queued and
     run asynchronously from the caller's point of view. The method will be
-    executed as one of the tasks that happens while run() is yielded
+    executed as one of the tasks that happens while run() is yielded, and run
+    in the agent's thread.
 
     From an external point of view, usage depends on whether the Agent is to
     run in its own thread.

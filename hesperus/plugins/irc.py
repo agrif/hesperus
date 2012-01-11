@@ -62,6 +62,23 @@ class IRCPluginBot(IRCBot):
         self.plugin.do_input(channels, source, cmd, True, reply)
 
 class IRCPlugin(Plugin):
+    """The IRC plugin. This listens for messages on the configured IRC channels
+    and relays them to the core on the configured hesperus plugin channels.
+
+    You can also specify separate hesperus channels for particular users. When
+    a user either sends a private message to us or says something in a channel,
+    this plugin will add the configured hesperus channel to the resulting call
+    to parent.handle_incoming()
+
+    Using this technique, you can form a rudimentary access list for certain
+    plugins. Say you configure this plugin to join an irc channel and have it
+    associate with hesperus channel "default". Then you add a nick with the
+    plugin "admin". Then you can plugins that listen to "default" and respond
+    to everyone, and plugins that respond to "admin" and will get messages only
+    from admins.
+
+    """
+
     @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, quitmsgs=ET.Element)
     def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsgs=None):
         

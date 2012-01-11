@@ -9,6 +9,35 @@ class ConfigurationError(Exception):
     pass
 
 class Plugin(Agent):
+    """A plugin is an Agent with the addition of some configuration routines
+    and a message passing interface for inter-plugin communication.
+
+    Each Plugin can send and receive messages on "channels".  A plugin is
+    configured with a number of channels that it "listens to" and will receive
+    messages on. When the core receives an incoming message, it is relayed to
+    all plugins whose channels intersect with the message's channels.
+
+    Plugins can also send messages, for example, if they communicate with an
+    external service such as IRC. When the core receives an outgoing message,
+    it is sent to all plugins who are subscribed to the message's destination
+    channel.
+
+    All plugins have a "parent" which is typically the core. Plugins can send
+    incoming and outgoing messages to the core and they will be relayed to the
+    other plugins depending on the message and the plugin channels.
+
+    Typically, plugins will fall into one of two categories: a connector to a
+    service such as IRC, or a plugin that provides some kind of functionality
+    in response to messages from the service connector.
+
+    For example, the IRC plugin connects to an IRC server. New messages are
+    sent to the core and to other plugins via parent.handle_incoming(). Plugins
+    respond by calling either the reply() callback provided to
+    handle_incoming(), or by calling parent.send_outgoing() to relay a message
+    to the IRC plugin.
+
+    """
+
     @classmethod
     def load_plugin(cls, core, el):
         plug_type = el.get('type', 'plugin.Plugin')

@@ -109,6 +109,9 @@ class Reloader(CommandPlugin):
                     except ConfigurationError, e:
                         self.log_message("Configuration error in %s: %s" % (pluginname,e,))
                         errorlist.append(pluginname)
+                    except Exception, e:
+                        self.log_message("Misc error in %s: %s" % (pluginname, e))
+                        errorlist.append(pluginname)
                     else:
                         self.parent.add_plugin(plugin)
                 

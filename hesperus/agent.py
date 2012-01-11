@@ -52,9 +52,10 @@ class Agent(object):
         self.queue = Queue(1000)
     
     # decorator to force a function to execute in the Agent's thread
-    # XXX If the agent is not running in its own thread, will queue()'d method
-    # ever get called? self.thread would be None and that condition would never
-    # be true, but there's nothing checking the other end of the queue, right?
+    # XXX If the agent is not running in its own thread, will @queued methods
+    # ever get called? self.thread would be None so the condition below would
+    # never be true, calls will always get pushed onto the queue, but there's
+    # nothing checking the other end of the queue, right?
     @classmethod
     def queued(cls, func):
         def queued_intern(self, *args, **kwargs):

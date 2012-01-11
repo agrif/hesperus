@@ -147,7 +147,7 @@ class Agent(object):
         ]
         
         timebuf = time.strftime("%x %X")
-        domain = cls.__module__
+        domain = cls.__module__ + "." + cls.__name__
         if domain.startswith('hesperus.'):
             domain = domain.split('.', 1)[1]
         else:

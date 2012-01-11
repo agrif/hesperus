@@ -451,7 +451,11 @@ class Feed(object):
 
     def get_new_events(self):
         newevents = []
-        allevents = self._fetch()
+        try:
+            allevents = self._fetch()
+        except urllib2.HTTPError, e:
+            return []
+
 
         for event in allevents:
             if event['created_at'] > self.lastupdate:

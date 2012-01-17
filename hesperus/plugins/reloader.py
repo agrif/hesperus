@@ -95,8 +95,8 @@ class Reloader(CommandPlugin):
                 foundreload = True
 
                 self.log_verbose("Reloading module %s for plugin %s" % (modulename, pluginname))
-                mod = __import__(modulename, fromlist=[pluginname])
                 try:
+                    mod = __import__(modulename, fromlist=[pluginname])
                     newmod = reload(mod)
                 except Exception, e:
                     traceback.print_exc()

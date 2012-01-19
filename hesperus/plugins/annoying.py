@@ -14,8 +14,8 @@ class Repeater(Plugin):
     matcher = re.compile(r"^[^! ][^ ]{0,5}$")
 
     @Plugin.config_types(timeout=int, chance=float)
-    def __init__(self, timeout=5, chance=0.7, *args):
-        super(Repeater, self).__init__(*args)
+    def __init__(self, core, timeout=5, chance=0.7, *args):
+        super(Repeater, self).__init__(core, *args)
         self.lastline = None
         self.lastmsg = 0
         self.timeout = timeout
@@ -56,8 +56,8 @@ class NoU(Plugin):
     umatch = re.compile(r"^u+!*", re.I)
 
     @Plugin.config_types(timeout=int, wait=int)
-    def __init__(self, timeout=2, wait=2, *args):
-        super(NoU, self).__init__(*args)
+    def __init__(self, core, timeout=2, wait=2, *args):
+        super(NoU, self).__init__(core, *args)
         self.lastmsg = 0
         self.noseen = False
         self.timeout = timeout

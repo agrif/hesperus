@@ -12,12 +12,14 @@ class Repeater(Plugin):
     small chance it'll repeat a line it saw in two different channels
     """
     matcher = re.compile(r"^[^! ][^ ]{0,5}$")
-    timeout = 5
 
-    def __init__(self, *args):
+    @Plugin.config_types(timeout=int, chance=float)
+    def __init__(self, timeout=5, chance=0.7, *args):
         super(Repeater, self).__init__(*args)
         self.lastline = None
         self.lastmsg = 0
+        self.timeout = timeout
+        self.chance = chance
         
     @Plugin.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
@@ -38,7 +40,7 @@ class Repeater(Plugin):
         if msg == self.lastline:
             rnd = random.random()
             self.log_debug("A repeat! Random chance was %s" % rnd)
-            if rnd < 0.7:
+            if rnd < self.chance:
                 self.log_debug("Repeating the line! Incomming!")
                 time.sleep(2)
                 reply(msg)
@@ -52,12 +54,14 @@ class NoU(Plugin):
     noumatch = re.compile(r"^no+ ?u!*$", re.I)
     nomatch = re.compile(r"^no+!*$", re.I)
     umatch = re.compile(r"^u+!*", re.I)
-    timeout = 2
 
-    def __init__(self, *args):
+    @Plugin.config_types(timeout=int, wait=int)
+    def __init__(self, timeout=2, wait=2, *args):
         super(NoU, self).__init__(*args)
         self.lastmsg = 0
         self.noseen = False
+        self.timeout = timeout
+        self.wait = wait
 
     #def trigger(self, name, msg, direct, reply):
     @Plugin.queued
@@ -68,7 +72,7 @@ class NoU(Plugin):
         if self.noumatch.match(msg):
 
             self.lastmsg = time.time()
-            time.sleep(2)
+            time.sleep(self.wait)
             reply(msg + "!")
             return
 
@@ -83,7 +87,7 @@ class NoU(Plugin):
         if self.umatch.match(msg):
             self.log_debug("u found. here it comes!")
             self.lastmsg = time.time()
-            time.sleep(2)
+            time.sleep(self.wait)
             reply("NO U!")
         else:
             self.log_debug("Guess not.")

@@ -55,22 +55,23 @@ class NoU(Plugin):
     nomatch = re.compile(r"^no+!*$", re.I)
     umatch = re.compile(r"^u+!*", re.I)
 
-    @Plugin.config_types(timeout=int, wait=int)
-    def __init__(self, core, timeout=2, wait=2, *args):
+    @Plugin.config_types(timeout=int, wait=int, chance=float)
+    def __init__(self, core, timeout=2, wait=2, chance=1.0, *args):
         super(NoU, self).__init__(core, *args)
         self.lastmsg = 0
         self.noseen = False
         self.timeout = timeout
         self.wait = wait
+        self.chance = chance
 
-    #def trigger(self, name, msg, direct, reply):
     @Plugin.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
         if time.time() < self.lastmsg + self.timeout:
             return
 
         if self.noumatch.match(msg):
-
+            if random.random() > self.chance:
+                return
             self.lastmsg = time.time()
             time.sleep(self.wait)
             reply(msg + "!")

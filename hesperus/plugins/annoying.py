@@ -93,3 +93,28 @@ class NoU(Plugin):
         else:
             self.log_debug("Guess not.")
         self.noseen = False
+
+class ORLY(Plugin):
+    orlymatch = re.compile(r"^o\ ?rly\?*$", re.I)
+
+    @Plugin.config_types(timeout=int, chance=float)
+    def __init__(self, core, timeout=5, chance=1.0, *args):
+        super(ORLY, self).__init__(core, *args)
+        self.lastmsg = 0
+        self.timeout = timeout
+        self.chance = chance
+
+    @Plugin.queued
+    def handle_incoming(self, chans, name, msg, direct, reply):
+        if time.time() < self.lastmsg + self.timeout:
+            return
+
+        if self.orlymatch.match(msg):
+            if random.random() > self.chance:
+                self.log_message("Matched orly but failed random test. %r" % msg)
+                return
+
+            self.lastmsg = time.time()
+            time.sleep(2)
+            reply("YA RLY!")
+            return

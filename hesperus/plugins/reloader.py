@@ -24,7 +24,17 @@ class Reloader(CommandPlugin):
                 raise ConfigurationError('skip must contain name tags')
             self.skip.add(el.text.strip())
 
-    @CommandPlugin.register_command(r"reload(?: (\w+))?")
+    @CommandPlugin.register_command(r"unload (\w+)")
+    def unload(self, chans, name, match, direct, reply):
+        for plugin in self.parent.plugins:
+            if plugin.__class__.__name__ == match.group(1):
+                self.parent.remove_plugin(plugin)
+                reply("%s unloaded" % match.group(1))
+                break
+        else:
+            reply("No running plugin named %s found" % match.group(1))
+
+    @CommandPlugin.register_command(r"(?:load|reload)(?: (\w+))?")
     def reload(self, chans, name, match, direct, reply):
         self.log_message("Reloading plugins...")
 

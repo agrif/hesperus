@@ -3,6 +3,7 @@ import time
 from Queue import Queue, Empty
 from traceback import format_exc
 from ansi import colored
+import sys
 
 class Agent(object):
     """An agent is a class whose instances follow a standard protocol for
@@ -164,6 +165,7 @@ class Agent(object):
         
         with cls.stdout_lock:
             print prefix, msg
+            sys.stdout.flush()
     
     # conveniences for logging
     def log_debug(self, *msg): self.log(0, *msg)

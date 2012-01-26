@@ -85,7 +85,7 @@ class TOpen(object):
         self.proc.kill()
     
     def get_line(self):
-        """Returns a line of input from the process's stdout, not including the
+        """Returns a line of input from the process's stdout, including the
         terminating newline. May return an empty string indicating no data
         
         """
@@ -109,11 +109,12 @@ class TOpen(object):
                     raise
 
             if not a or a == "\n":
+                buf.write(a)
                 break
 
             buf.write(a)
             
-        return buf.getvalue().rstrip("\r\n")
+        return buf.getvalue()
     
     def put_line(self, line):
         """Writes a line of text to the process's stdin. If the given string

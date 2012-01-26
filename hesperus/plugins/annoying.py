@@ -43,6 +43,7 @@ class Repeater(Plugin):
             if rnd < self.chance:
                 self.log_debug("Repeating the line! Incomming!")
                 time.sleep(2)
+                self.lastmsg = time.time()
                 reply(msg)
         else:
             self.lastline = msg
@@ -53,7 +54,7 @@ class NoU(Plugin):
     """
     noumatch = re.compile(r"^no+ ?u!*$", re.I)
     nomatch = re.compile(r"^no+!*$", re.I)
-    umatch = re.compile(r"^u+!*", re.I)
+    umatch = re.compile(r"^u+!*$", re.I)
 
     @Plugin.config_types(timeout=int, wait=int, chance=float)
     def __init__(self, core, timeout=2, wait=2, chance=1.0, *args):
@@ -71,6 +72,7 @@ class NoU(Plugin):
 
         if self.noumatch.match(msg):
             if random.random() > self.chance:
+                self.log_message("Matched nou but failed random test. %r" % msg)
                 return
             self.lastmsg = time.time()
             time.sleep(self.wait)
@@ -87,9 +89,34 @@ class NoU(Plugin):
     def u(self, msg, reply):
         if self.umatch.match(msg):
             self.log_debug("u found. here it comes!")
-            self.lastmsg = time.time()
             time.sleep(self.wait)
+            self.lastmsg = time.time()
             reply("NO U!")
         else:
             self.log_debug("Guess not.")
         self.noseen = False
+
+class ORLY(Plugin):
+    orlymatch = re.compile(r"^o\ ?rly\?*$", re.I)
+
+    @Plugin.config_types(timeout=int, chance=float)
+    def __init__(self, core, timeout=5, chance=1.0, *args):
+        super(ORLY, self).__init__(core, *args)
+        self.lastmsg = 0
+        self.timeout = timeout
+        self.chance = chance
+
+    @Plugin.queued
+    def handle_incoming(self, chans, name, msg, direct, reply):
+        if time.time() < self.lastmsg + self.timeout:
+            return
+
+        if self.orlymatch.match(msg):
+            if random.random() > self.chance:
+                self.log_message("Matched orly but failed random test. %r" % msg)
+                return
+
+            time.sleep(2)
+            self.lastmsg = time.time()
+            reply("YA RLY!")
+            return

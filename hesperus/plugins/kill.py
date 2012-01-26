@@ -2,7 +2,7 @@ from hesperus.plugin import CommandPlugin
 
 class KillPlugin(CommandPlugin):
     commands_queued = False
-    @CommandPlugin.register_command(r"kill|die")
+    @CommandPlugin.register_command(r"kill|die|stop|quit|shutdown|halt")
     def kill_command(self, chans, name, match, direct, reply):
         self.log_message("kill command issued by %s!" % (name,))
         reply(":( Shutting down...")

@@ -1,8 +1,9 @@
 import threading
 import time
-from Queue import Queue
+from Queue import Queue, Empty
 from traceback import format_exc
 from ansi import colored
+import sys
 
 class Agent(object):
     """An agent is a class whose instances follow a standard protocol for
@@ -95,22 +96,26 @@ class Agent(object):
         
         try:
             it = self.run()
-            while True:
+            # Access to self._running does not necessarily need to be wrapped
+            # around a lock: reading a variable is atomic in python -- it is a
+            # single bytecode operation. It's especially safe here since
+            # _running will always be one of the boolean singletons.
+            while self._running:
                 try:
                     it.next()
                 except StopIteration:
                     break
-
-                with self.lock:
-                    if not self._running:
-                        break
                 
                 # give a little leeway
                 time.sleep(0.1)
 
-                while not self.queue.empty():
-                    item = self.queue.get()
-                    item[0](self, *item[1], **item[2])
+                while self._running:
+                    try:
+                        item = self.queue.get_nowait()
+                    except Empty:
+                        break
+                    else:
+                        item[0](self, *item[1], **item[2])
         
         except Exception, e:
             with self.lock:
@@ -160,6 +165,7 @@ class Agent(object):
         
         with cls.stdout_lock:
             print prefix, msg
+            sys.stdout.flush()
     
     # conveniences for logging
     def log_debug(self, *msg): self.log(0, *msg)

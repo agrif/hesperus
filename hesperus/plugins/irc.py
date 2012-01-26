@@ -28,7 +28,6 @@ class RateLimit(object):
             if self.msgcount >= 5:
                 time.sleep(self.waittime)
                 self.lastmsg = now + self.waittime
-                self.msgcount = 0
 
 class IRCPluginBot(IRCBot):
     def __init__(self, plugin, channels):

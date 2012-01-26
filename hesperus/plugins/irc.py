@@ -6,11 +6,36 @@ import re
 import string
 import time
 
+class RateLimit(object):
+    """If 5 lines come in less than 2 seconds, sleep for 2 seconds"""
+    def __init__(self, waittime=2):
+        self.waittime = waittime
+        self.lastmsg = 0
+        # Number of messages that have come in since lastmsg
+        self.msgcount = 0
+
+    def call(self):
+        now = time.time()
+        if now - self.lastmsg > self.waittime:
+            # Nothing received in waittime seconds. No delay.
+            self.lastmsg = now
+            self.msgcount = 0
+
+        else:
+            # received this message within the last waittime seconds of lastmsg
+            self.msgcount += 1
+
+            if self.msgcount >= 5:
+                time.sleep(self.waittime)
+                self.lastmsg = now + self.waittime
+                self.msgcount = 0
+
 class IRCPluginBot(IRCBot):
     def __init__(self, plugin, channels):
         IRCBot.__init__(self, [(plugin.server, plugin.port)], plugin.nick, plugin.nick)
         self.initial_channels = channels
         self.plugin = plugin
+        self.ratelimit = RateLimit()
     
     def on_nicknameinuse(self, c, e):
         c.nick(c.get_nickname() + "_")
@@ -39,6 +64,7 @@ class IRCPluginBot(IRCBot):
         msg = e.arguments()[0].strip()
         msg = self.strip_nonprintable(msg)
         def reply(msg):
+            self.ratelimit.call()
             self.connection.privmsg(channel, msg.encode('utf-8'))
         self.plugin.do_input([channel], source, msg, False, reply)
     
@@ -47,6 +73,7 @@ class IRCPluginBot(IRCBot):
             return
         
         def reply(msg):
+            self.ratelimit.call()
             if channel == None:
                 self.connection.privmsg(source, msg.encode('utf-8'))
             else:
@@ -182,7 +209,9 @@ class IRCPlugin(Plugin):
         msg = msg.encode('UTF-8')
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:
+                self.bot.ratelimit.call()
                 self.bot.connection.privmsg(irc_chan, msg)
         if chan in self.nickmap:
             for irc_nick in self.nickmap[chan]:
+                self.bot.ratelimit.call()
                 self.bot.connection.privmsg(irc_nick, msg)

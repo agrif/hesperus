@@ -6,7 +6,7 @@ import termios
 import fcntl
 import errno
 
-def postfork():
+def _postfork(extra=None):
     """This is executed in the forked child, before it executes the requested
     program
     
@@ -18,6 +18,9 @@ def postfork():
     # Now use the TIOCSCTTY ioctl to set our controlling terminal to whatever
     # stdout is (the pty created earlier)
     fcntl.ioctl(1, termios.TIOCSCTTY)
+
+    if extra:
+        extra()
 
 # These options taken from a gnome-terminal session.
 default_term_settings = [27906, 5, 1215, 35387, 15, 15, ['\x03', '\x1c',
@@ -35,7 +38,12 @@ class TOpen(object):
     process. Reads are non-blocking.
     
     """
-    def __init__(self, procstring):
+    def __init__(self, procstring, postfork=None):
+        """Launch the process using a pseudo-terminal.
+        postfork, if given, is called after the subprocess forks but before it
+        is exec()'d. It is intended to set resource limits.
+
+        """
         # Create a new pseudo-terminal pair. We'll read from the master side and
         # connect the child to the slave side.
         master, slave = pty.openpty()
@@ -48,7 +56,7 @@ class TOpen(object):
 
         self.proc = subprocess.Popen(procstring, shell=True,
                 stdin=slave, stdout=slave, stderr=slave, close_fds=True,
-                preexec_fn=postfork)
+                preexec_fn=lambda: _postfork(postfork))
         os.close(slave)
         
         # Set it to non-blocking

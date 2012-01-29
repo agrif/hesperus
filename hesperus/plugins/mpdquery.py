@@ -22,12 +22,29 @@ class MPDQuery(CommandPlugin):
         client.disconnect()
 
         if status['state'] == "play":
-            reply("%s %s - %s - %s. %s" % (
+            title = songinfo.get('title', '')
+            artist = songinfo.get('artist', '')
+            album = songinfo.get('album', '')
+            name = songinfo.get('name', '')
+
+            if title and artist and album:
+                reply("%s %s - %s - %s. %s" % (
                 self.replyprefix,
                 songinfo['title'],
                 songinfo['artist'],
                 songinfo['album'],
                 self.replypostfix,
                 ))
+            elif name:
+                reply("%s \"%s\" %s" % (
+                    self.replyprefix,
+                    name,
+                    self.replypostfix,
+                    ))
+            else:
+                reply("%s <unknown> %s" % (
+                    self.replyprefix,
+                    self.replypostfix,
+                    ))
         else:
             reply(self.notplaying)

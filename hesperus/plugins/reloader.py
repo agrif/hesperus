@@ -45,6 +45,7 @@ class Reloader(CommandPlugin):
             import traceback
             traceback.print_exc()
             reply("Error reading config file. No plugins (re)loaded")
+            return
 
         # Get the set of current plugin names
         loadedplugins = set(x.__class__.__name__ for x in list(self.parent.plugins))

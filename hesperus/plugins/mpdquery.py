@@ -30,11 +30,24 @@ class MPDQuery(CommandPlugin):
             if title and artist and album:
                 reply("%s %s - %s - %s. %s" % (
                 self.replyprefix,
-                songinfo['title'],
-                songinfo['artist'],
-                songinfo['album'],
+                title,
+                artist,
+                album,
                 self.replypostfix,
                 ))
+            elif title and artist:
+                reply("%s %s by %s. %s" % (
+                    self.replyprefix,
+                    title,
+                    artist,
+                    self.replypostfix,
+                    ))
+            elif title:
+                reply("%s %s. %s" % (
+                    self.replyprefix,
+                    title,
+                    self.replypostfix,
+                    ))
             elif name:
                 reply("%s \"%s\" %s" % (
                     self.replyprefix,

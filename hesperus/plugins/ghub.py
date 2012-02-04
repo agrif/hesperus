@@ -7,6 +7,7 @@ from datetime import datetime
 from time import time, sleep
 from copy import copy
 from posixpath import split as posix_split
+from httplib import HTTPException
 
 from github.github import GitHub
 
@@ -447,7 +448,10 @@ class Feed(object):
         self.lastupdate = events[0]['created_at']
 
     def _fetch(self):
-        return self.gh3.query(self.url)
+        try:
+            return self.gh3.query(self.url)
+        except HTTPException:
+            return []
 
     def get_new_events(self):
         newevents = []

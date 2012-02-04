@@ -7,7 +7,6 @@ from datetime import datetime
 from time import time, sleep
 from copy import copy
 from posixpath import split as posix_split
-from httplib import HTTPException
 
 from github.github import GitHub
 
@@ -445,21 +444,30 @@ class Feed(object):
         # Store lastupdate as a string, lexographic ordering should work just
         # fine. No need to parse the date.
         events = self._fetch()
-        self.lastupdate = events[0]['created_at']
+        if events:
+            self.lastupdate = events[0]['created_at']
+        else:
+            self.lastupdate = None
 
     def _fetch(self):
         try:
             return self.gh3.query(self.url)
-        except HTTPException:
+        except urllib2.URLError:
             return []
 
     def get_new_events(self):
-        newevents = []
-        try:
-            allevents = self._fetch()
-        except urllib2.HTTPError, e:
+        allevents = self._fetch()
+        if not allevents:
+            # Nothing returned, maybe a connectivity error?
             return []
 
+        if not self.lastupdate:
+            # Still hasn't done the inital update (due to connectivity failures
+            # perhaps).
+            self.lastupdate = allevents[0]['created_at']
+            return []
+
+        newevents = []
 
         for event in allevents:
             if event['created_at'] > self.lastupdate:

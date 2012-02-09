@@ -81,6 +81,12 @@ class AutoDelayGitHub:
         self.lasttime = time()
         return getattr(self.gh, name)
 
+class NoData(Exception):
+    """Indicates no data was returned due to some kind of error while querying
+    Github in the MiniGithubAPI class
+
+    """
+    pass
 class MiniGithubAPI(object):
     """For version 3 of the API, since the py-github libraries use the older
     version and try to parse github's xml that is occasionally malformed.
@@ -130,7 +136,13 @@ class MiniGithubAPI(object):
         reqobj = urllib2.Request(completeurl)
         if raw:
             reqobj.add_header("Accept", "application/vnd.github.raw")
-        request = urllib2.urlopen(reqobj)
+        try:
+            request = urllib2.urlopen(reqobj)
+        except Exception, e:
+            # Who knows what urlopen can raise... it doesn't seem to be clear.
+            # urllib2.URLError, urllib.HTTPError, maybe some other stuff? I'm
+            # disappointed in you, Python standard library!
+            raise NoData(str(e))
 
         if raw:
             return request.read()
@@ -452,7 +464,7 @@ class Feed(object):
     def _fetch(self):
         try:
             return self.gh3.query(self.url)
-        except urllib2.URLError:
+        except NoData:
             return []
 
     def get_new_events(self):
@@ -568,7 +580,10 @@ class GitHubEventMonitorV3(PollPlugin):
             # We need to find the first commit in the series, so we can find
             # its parent, since for the compare we want the range from the
             # first commit's parent to the last commit.
-            firstcommit = self.gh3.query(payload['commits'][0]['url'])
+            try:
+                firstcommit = self.gh3.query(payload['commits'][0]['url'])
+            except NoData:
+                return "Github seems to be having problems. I *think* something was just pushed, but I couldn't get any more info"
 
             url = "https://github.com/%s/compare/%s...%s" % (event['repo']['name'],
                     firstcommit['parents'][0]['sha'],

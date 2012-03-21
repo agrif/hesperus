@@ -12,7 +12,7 @@ class GearmanStatusPlugin(CommandPlugin):
         running = []
         idle = []
         for task in self.admin_client.get_status():
-            if task['running'] == 0:
+            if task['running'] == 0 and task['queued'] == 0:
                 idle.append(task['task'])
             else:
                 running.append('%s: %d+%d/%d' % (task['task'], task['running'], task['queued'], task['workers']))

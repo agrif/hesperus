@@ -1,6 +1,7 @@
 from hesperus.plugin import CommandPlugin
 import re
 import json
+import random
 
 class SnippetPlugin(CommandPlugin):
     _data = {}
@@ -10,19 +11,33 @@ class SnippetPlugin(CommandPlugin):
         super(SnippetPlugin, self).__init__(core)
         self._persist_file = persist_file
         self.load_data()
+
     @CommandPlugin.register_command(r'snip(?:pet)?\s+(\w+)(?:\s+(.*))?')
     def snippet_command(self, chans, name, match, direct, reply):
         if match.group(2):
             self._data[match.group(1)] = (name, match.group(2))
             self.save_data()
-            reply('Saved snippet to key: %s' % match.group(1))
+            reply('Today I learned about "{thing}"'.format(thing=match.group(1)))
         else:
             try:
                 s = self._data[match.group(1)]
             except KeyError:
-                reply('I don\'t remember anyone saying anything about that')
+                key = match.group(1)
+                if key == 'list':
+                    reply('I know these things: {snippets}'.format(snippets=', '.join(self._data.keys())))
+                elif key == 'save':
+                    self.save_data()
+                    reply('Sure, let me just find a pen')
+                elif key == 'reload':
+                    self.load_data()
+                    reply('Getting a sense of deja vu here...')
+                elif key == 'random':
+                    reply('"{snippet[1]}" -- {snippet[0]}'.format(
+                        snippet=self._data[self._data.keys()[random.randint(0,len(self._data)-1)]]))
+                else:
+                    reply('I don\'t know anything about "{thing}"'.format(thing=key))
             else:
-                reply('%s said: %s' % (s[0], s[1]))
+                reply('"{snippet[1]}" -- {snippet[0]}'.format(snippet=s))
 
 
     def load_data(self):

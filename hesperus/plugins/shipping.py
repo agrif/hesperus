@@ -9,6 +9,7 @@ class FollowingPlugin(PollPlugin, CommandPlugin):
 
     @PollPlugin.config_types(persist_file=str)
     def __init__(self, core, persist_file='shipping-following.json'):
+        super(FollowingPlugin, self).__init__(core)
         self._persist_file = persist_file
         self._data = {}
         self.load_data()

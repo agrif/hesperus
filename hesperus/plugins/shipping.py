@@ -31,53 +31,47 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 else:
-                    self._data[tn] = state
+                    self._data[tn] = int(time.mktime(state.last_update.timetuple()))
                     self.save_data()
                     reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
             packages = map(packagetrack.Package, self._data.keys())
             if packages:
                 reply('I\'m watching these packages: {}'.format(
-                    ', '.join('{shipper}: {tn}'.format(
+                    ', '.join('({shipper}){tn}'.format(
                         shipper=p.shipper, tn=p.tracking_number) for p in packages)))
             else:
                 reply('I\'m not watching any packages right now')
 
     def poll(self):
-        for (tn, old_state) in self._data.iteritems():
+        for (tn, last_check) in self._data.items():
             package = packagetrack.Package(tn)
             new_state = package.track()
-            if old_state.last_update < new_state.last_update:
-                self.output_status(tn, old_state, new_state)
+            new_update = int(time.mktime(new_state.last_update.timetuple()))
+            if last_check < new_update:
+                self._data[tn] = new_update
+                self.output_status(package)
             yield
 
-    def output_status(self, tn, old_state, new_state):
+    def output_status(self, package):
         for chan in self._channels:
             self.parent.send_outgoing(chan,
-                '{tn} moved from {old_status} to {new_status}'.format(
-                    tn=tn, old_status=old_state.status,
-                    new_status=new_state.status))
+                '{shipper} moved {tn} to {state} ({url})'.format(
+                    tn=package.tracking_number,
+                    shipper=package.shipper,
+                    state=package.track().status,
+                    url=short_url(package.url())))
 
     def save_data(self):
-        data = self._data
-        for (tn, state) in data.iteritems():
-            for key in ['last_update', 'delivery_date']:
-                state[key] = time.mktime(state[key])
         with open(self._persist_file, 'wb') as pf:
-            json.dump(data, pf, indent=4)
+            json.dump(self._data, pf, indent=4)
 
     def load_data(self):
-        data = {}
         try:
             with open(self._persist_file, 'rb') as pf:
-                data.update(json.load(pf))
-        except IOError:
+                self._data.update(json.load(pf))
+        except (IOError, ValueError):
             pass
-        else:
-            for (tn, state) in data.iteritems():
-                for key in ['last_update', 'delivery_date']:
-                    state[key] = datetime.datetime.fromtimestamp(int(state[key]))
-            self._data.udpate(data)
 
 
 class TrackingPlugin(CommandPlugin):
@@ -109,5 +103,6 @@ class TrackingPlugin(CommandPlugin):
                 carrier=package.shipper,
                 status=info.status,
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
-                delivery_date=info.delivery_date.strftime('%m/%d'),
+                delivery_date=info.delivery_date.strftime('%m/%d') \
+                    if info.delivery_date is not None else 'UNKNOWN',
                 url=short_url(package.url())))

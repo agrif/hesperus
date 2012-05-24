@@ -1,13 +1,12 @@
 import packagetrack
 import time
-import json
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 
-class FollowingPlugin(PollPlugin, CommandPlugin):
+class FollowingPlugin(CommandPlugin, PollPlugin):
     poll_interval = 120
 
-    @PollPlugin.config_types(persist_file=str)
+    @CommandPlugin.config_types(persist_file=str)
     def __init__(self, core, persist_file='shipping-following.json'):
         super(FollowingPlugin, self).__init__(core)
         self._persist_file = persist_file
@@ -17,11 +16,12 @@ class FollowingPlugin(PollPlugin, CommandPlugin):
     @CommandPlugin.register_command(r'ptrack(?:\s+([\w\d]+)?)?')
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
+            tn = match.group(1)
             if tn in self._data.keys():
                 del self._data[tn]
+                self.save_data()
                 reply('WELL FINE THEN, I won\'t tell you about that package anymore')
             else:
-                tn = match.group(1)
                 package = packagetrack.Package(tn)
                 try:
                     state = package.track()
@@ -31,6 +31,7 @@ class FollowingPlugin(PollPlugin, CommandPlugin):
                     reply('I don\'t know how to deal with that number')
                 else:
                     self._data[tn] = state
+                    self.save_data()
                     reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
             packages = map(packagetrack.Package, self._data.keys())
@@ -46,7 +47,7 @@ class FollowingPlugin(PollPlugin, CommandPlugin):
             package = packagetrack.Package(tn)
             new_state = package.track()
             if old_state.last_update < new_state.last_update:
-                self.output_status(state, new_state)
+                self.output_status(tn, old_state, new_state)
             yield
 
     def output_status(self, tn, old_state, new_state):

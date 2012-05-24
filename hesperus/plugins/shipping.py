@@ -14,7 +14,7 @@ class FollowingPlugin(PollPlugin, CommandPlugin):
         self._data = {}
         self.load_data()
 
-    @CommandPlugin.register_command('ptrack(?:\s+([\w\d]+))?')
+    @CommandPlugin.register_command(r'ptrack(?:\s+([\w\d]+)?)?')
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
             if tn in self._data.keys():

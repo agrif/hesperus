@@ -1,5 +1,6 @@
 import packagetrack
 import time
+import datetime
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 
@@ -58,15 +59,26 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     new_status=new_state.status))
 
     def save_data(self):
+        data = self._data
+        for (tn, state) in data.iteritems():
+            for key in ['last_update', 'delivery_date']:
+                state[key] = time.mktime(state[key])
         with open(self._persist_file, 'wb') as pf:
-            json.dump(self._data, pf, indent=4)
+            json.dump(data, pf, indent=4)
 
     def load_data(self):
+        data = {}
         try:
             with open(self._persist_file, 'rb') as pf:
-                self._data.update(json.load(pf))
+                data.update(json.load(pf))
         except IOError:
             pass
+        else:
+            for (tn, state) in data.iteritems():
+                for key in ['last_update', 'delivery_date']:
+                    state[key] = datetime.datetime.fromtimestamp(int(state[key]))
+            self._data.udpate(data)
+
 
 class TrackingPlugin(CommandPlugin):
     def __init__(self, core, auth_file=None):

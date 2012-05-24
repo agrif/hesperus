@@ -13,6 +13,12 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
         self._persist_file = persist_file
         self._data = {}
         self.load_data()
+    
+    @CommandPlugin.register_command(r'pdebug')
+    def debug_command(self, chans, name, match, direct, reply):
+        for tn in self._data.keys():
+            p = packagetrack.Package(tn)
+            self.output_status(p)
         
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?")
     def track_command(self, chans, name, match, direct, reply):
@@ -54,13 +60,19 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
             yield
 
     def output_status(self, package):
+        state = package.track()
+        if len(state.events) > 1:
+            msg = '{package.shipper} moved {package.tracking_number} from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
+                package=package,
+                oldstate=state.events[1],
+                newstate=state)
+        else:
+            msg = '{package.shipper} moved {package.tracking_number} to {newstate.status}@{newstate.location}'.format(
+                package=package,
+                newstate=state)
+        msg += ' ({url})'.format(url=short_url(package.url()))
         for chan in self._channels:
-            self.parent.send_outgoing(chan,
-                '{shipper} moved {tn} to {state} ({url})'.format(
-                    tn=package.tracking_number,
-                    shipper=package.shipper,
-                    state=package.track().status,
-                    url=short_url(package.url())))
+            self.parent.send_outgoing(chan, msg)
 
     def save_data(self):
         with open(self._persist_file, 'wb') as pf:
@@ -97,11 +109,12 @@ class TrackingPlugin(CommandPlugin):
             self.log_warning(msg)
             reply(msg)
         else:
-            msg = '{carrier} has it at {status} as of {last_update}, '+ \
+            msg = '{carrier} has it at {status}@{location} as of {last_update}, '+ \
                 'should be delivered on {delivery_date} ({url})'
             reply(msg.format(
                 carrier=package.shipper,
                 status=info.status,
+                location=info.location,
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
                 delivery_date=info.delivery_date.strftime('%m/%d') \
                     if info.delivery_date is not None else 'UNKNOWN',

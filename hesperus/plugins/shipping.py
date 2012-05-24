@@ -1,17 +1,80 @@
 import packagetrack
 import time
-
+import json
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 
 class FollowingPlugin(PollPlugin, CommandPlugin):
-    pass
+    poll_interval = 120
+
+    @PollPlugin.config_types(persist_file=str)
+    def __init__(self, core, persist_file='shipping-following.json'):
+        self._persist_file = persist_file
+        self._data = {}
+        self.load_data()
+
+    @CommandPlugin.register_command('ptrack(?:\s+([\w\d]+))?')
+    def track_command(self, chans, name, match, direct, reply):
+        if match.group(1):
+            if tn in self._data.keys():
+                del self._data[tn]
+                reply('WELL FINE THEN, I won\'t tell you about that package anymore')
+            else:
+                tn = match.group(1)
+                package = packagetrack.Package(tn)
+                try:
+                    state = package.track()
+                except (packagetrack.UnsupportedShipper,
+                        packagetrack.service.InvalidTrackingNumber):
+                    self.log_warning('bad tracking number: {}'.format(tn))
+                    reply('I don\'t know how to deal with that number')
+                else:
+                    self._data[tn] = state
+                    reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
+        else:
+            packages = map(packagetrack.Package, self._data.keys())
+            if packages:
+                reply('I\'m watching these packages: {}'.format(
+                    ', '.join('{shipper}: {tn}'.format(
+                        shipper=p.shipper, tn=p.tracking_number) for p in packages)))
+            else:
+                reply('I\'m not watching any packages right now')
+
+    def poll(self):
+        for (tn, old_state) in self._data.iteritems():
+            package = packagetrack.Package(tn)
+            new_state = package.track()
+            if old_state.last_update < new_state.last_update:
+                self.output_status(state, new_state)
+            yield
+
+    def output_status(self, tn, old_state, new_state):
+        for chan in self._channels:
+            self.parent.send_outgoing(chan,
+                '{tn} moved from {old_status} to {new_status}'.format(
+                    tn=tn, old_status=old_state.status,
+                    new_status=new_state.status))
+
+    def save_data(self):
+        with open(self._persist_file, 'wb') as pf:
+            json.dump(self._data, pf, indent=4)
+
+    def load_data(self):
+        try:
+            with open(self._persist_file, 'rb') as pf:
+                self._data.update(json.load(pf))
+        except IOError:
+            pass
 
 class TrackingPlugin(CommandPlugin):
-    @CommandPlugin.register_command(r'track\s+([\w\d]+)')
-    def track_command(self, chans, name, match, direct, reply):
+    def __init__(self, core, auth_file=None):
+        super(TrackingPlugin, self).__init__(core)
+        self.auth_file = auth_file
+
+    @CommandPlugin.register_command(r'pstatus\s+([\w\d]+)')
+    def status_command(self, chans, name, match, direct, reply):
         tn = match.group(1)
-        package = packagetrack.Package(tn)
+        package = packagetrack.Package(tn, configfile=self.auth_file)
         try:
             info = package.track()
         except packagetrack.UnsupportedShipper:

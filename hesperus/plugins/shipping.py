@@ -12,8 +12,8 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
         self._persist_file = persist_file
         self._data = {}
         self.load_data()
-
-    @CommandPlugin.register_command(r'ptrack(?:\s+([\w\d]+)?)?')
+        
+    @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?")
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
             tn = match.group(1)
@@ -73,7 +73,7 @@ class TrackingPlugin(CommandPlugin):
         super(TrackingPlugin, self).__init__(core)
         self.auth_file = auth_file
 
-    @CommandPlugin.register_command(r'pstatus\s+([\w\d]+)')
+    @CommandPlugin.register_command(r"pstatus\s+([\w\d]+)")
     def status_command(self, chans, name, match, direct, reply):
         tn = match.group(1)
         package = packagetrack.Package(tn, configfile=self.auth_file)

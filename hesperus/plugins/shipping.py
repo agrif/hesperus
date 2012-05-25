@@ -4,6 +4,7 @@ import datetime
 import json
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
+from .irc import IRCPlugin
 
 class FollowingPlugin(CommandPlugin, PollPlugin):
     poll_interval = 120
@@ -14,13 +15,13 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
         self._persist_file = persist_file
         self._data = {}
         self.load_data()
-    
+
     @CommandPlugin.register_command(r'pdebug')
     def debug_command(self, chans, name, match, direct, reply):
         for tn in self._data.keys():
             p = packagetrack.Package(tn)
             self.output_status(p)
-        
+
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?")
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
@@ -38,7 +39,13 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 else:
-                    self._data[tn] = int(time.mktime(state.last_update.timetuple()))
+                    data = {
+                        'owner': name,
+                        'channels': chans,
+                        'direct': direct,
+                        'last_update': int(time.mktime(state.last_update.timetuple()))
+                    }
+                    self._data[tn] = data
                     self.save_data()
                     reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
@@ -51,12 +58,12 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                 reply('I\'m not watching any packages right now')
 
     def poll(self):
-        for (tn, last_check) in self._data.items():
+        for (tn, data) in self._data.items():
             package = packagetrack.Package(tn)
             new_state = package.track()
             new_update = int(time.mktime(new_state.last_update.timetuple()))
-            if last_check < new_update:
-                self._data[tn] = new_update
+            if data['last_update'] < new_update:
+                self._data[tn]['last_update'] = new_update
                 self.output_status(package)
             yield
 
@@ -71,9 +78,19 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
             msg = '{package.shipper} moved {package.tracking_number} to {newstate.status}@{newstate.location}'.format(
                 package=package,
                 newstate=state)
-        msg += ' ({url})'.format(url=short_url(package.url()))
-        for chan in self._channels:
-            self.parent.send_outgoing(chan, msg)
+        data = self._data[package.tracking_number]
+        msg = '{owner}: {msg} ({url})'.format(
+            url=short_url(package.url()),
+            owner=data['owner'],
+            msg=msg)
+        if data['direct']:
+            for plgn in self.parent._plugins:
+                if isinstance(plgn, IRCPlugin):
+                    plgn.bot.connection.privmsg(data['owner'], msg)
+                    break
+        else:
+            for chan in data['channels']:
+                self.parent.send_outgoing(chan, msg)
 
     def save_data(self):
         with open(self._persist_file, 'wb') as pf:

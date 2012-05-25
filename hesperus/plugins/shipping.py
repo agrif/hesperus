@@ -83,7 +83,7 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
             url=short_url(package.url()),
             owner=data['owner'],
             msg=msg)
-        if data['direct']:
+        if data['direct'] and False:
             for plgn in self.parent._plugins:
                 if isinstance(plgn, IRCPlugin):
                     plgn.bot.connection.privmsg(data['owner'], msg)

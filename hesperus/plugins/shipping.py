@@ -38,6 +38,8 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                         packagetrack.service.InvalidTrackingNumber):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
+                except packagetrack.service.TrackFailed as e:
+                    reply('Tracking failed: {}'.format(e))
                 else:
                     data = {
                         'owner': name,
@@ -58,18 +60,25 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                 reply('I\'m not watching any packages right now')
 
     def poll(self):
+        delivered = []
         for (tn, data) in self._data.items():
             package = packagetrack.Package(tn)
             new_state = package.track()
             new_update = int(time.mktime(new_state.last_update.timetuple()))
+            if new_state.status.lower().startswith('delivered'):
+                delivered.append(tn)
             if data['last_update'] < new_update:
                 self._data[tn]['last_update'] = new_update
                 self.output_status(package)
             yield
+        for tn in delivered:
+            del self._data[tn]
 
     def output_status(self, package):
         state = package.track()
-        if len(state.events) > 1:
+        if state.status.lower().startswith('delivered'):
+            msg = '{package.shipper} has delivered {package.tracking_number}'.format(package=package)
+        elif len(state.events) > 1:
             msg = '{package.shipper} moved {package.tracking_number} from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
                 package=package,
                 oldstate=state.events[1],
@@ -89,8 +98,9 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     plgn.bot.connection.privmsg(data['owner'], msg)
                     break
         else:
-            for chan in data['channels']:
-                self.parent.send_outgoing(chan, msg)
+            self.parent.send_outgoing('default', msg)
+            #for chan in data['channels']:
+            #    self.parent.send_outgoing(chan, msg)
 
     def save_data(self):
         with open(self._persist_file, 'wb') as pf:

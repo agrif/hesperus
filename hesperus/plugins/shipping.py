@@ -39,17 +39,21 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except packagetrack.service.TrackFailed as e:
-                    reply('Tracking failed: {}'.format(e))
+                    reply('HAHA NO, {p.shipper} said "{msg}" ({url})'.format(
+                        p=package, msg=e, url=short_url(package.url())))
                 else:
-                    data = {
-                        'owner': name,
-                        'channels': chans,
-                        'direct': direct,
-                        'last_update': int(time.mktime(state.last_update.timetuple()))
-                    }
-                    self._data[tn] = data
-                    self.save_data()
-                    reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
+                    if state.status.lower().startswith('delivered'):
+                        reply('PROTIP: That package has already been delivered...')
+                    else:
+                        data = {
+                            'owner': name,
+                            'channels': chans,
+                            'direct': direct,
+                            'last_update': int(time.mktime(state.last_update.timetuple()))
+                        }
+                        self._data[tn] = data
+                        self.save_data()
+                        reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
             packages = map(packagetrack.Package, self._data.keys())
             if packages:
@@ -131,19 +135,26 @@ class TrackingPlugin(CommandPlugin):
         except packagetrack.service.InvalidTrackingNumber:
             self.log_warning('InvalidTrackingNumber: {}'.format(tn))
             reply('Are you sure you that\'s the right number?')
+        except packagetrack.service.TrackFailed as e:
+            reply('HAHA NO, {p.shipper} said "{msg}" ({url})'.format(
+                p=package, msg=e, url=short_url(package.url())))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(
                 etype=e.__class__.__name__, message=e.message, tn=tn)
             self.log_warning(msg)
             reply(msg)
         else:
-            msg = '{carrier} has it at {status}@{location} as of {last_update}, '+ \
-                'should be delivered on {delivery_date} ({url})'
+            if info.status.lower().startswith('delivered'):
+                msg = '{p.shipper} says it has been delivered as of {last_update}'
+            else:
+                msg = '{p.shipper} has it at {i.status}@{i.location} as of {last_update}, ' + \
+                    'should be delivered {delivery_date}'
+            msg += ' ({url})'
+            delivery_date = 'UNKNOWN' if info.delivery_date is None else \
+                ('today' if info.delivery_date.date() == datetime.date.today() else info.delivery_date.strftime('%m/%d'))
             reply(msg.format(
-                carrier=package.shipper,
-                status=info.status,
-                location=info.location,
+                p=package,
+                i=info,
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
-                delivery_date=info.delivery_date.strftime('%m/%d') \
-                    if info.delivery_date is not None else 'UNKNOWN',
+                delivery_date=delivery_date,
                 url=short_url(package.url())))

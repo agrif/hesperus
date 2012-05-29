@@ -1,9 +1,11 @@
 import time
 
-from .plugin import CommandPlugin, PassivePlugin
+from .plugin import CommandPlugin, PassivePlugin, PollPlugin
 from data247.api import ApiConnection
 
-class SMSAlerter(CommandPlugin, PassivePlugin):
+class SMSAlerter(CommandPlugin, PollPlugin):
+    poll_interval = 15
+
     @CommandPlugin.config_types(api_user=str, api_pass=str, timeout=int)
     def __init__(self, core, api_user, api_pass, timeout=900):
         super(SMSAlerter, self).__init__(core)
@@ -29,6 +31,10 @@ class SMSAlerter(CommandPlugin, PassivePlugin):
     def activity_watch(self, chans, name, msg, direct, reply):
         if name in self._data.keys():
             self._data[name]['last_active'] = int(time.time())
+
+    def poll(self):
+        #if no reply to dm after 5m, do notify
+        pass
 
     def notify(self, src, dest, msg):
         pass

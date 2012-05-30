@@ -6,21 +6,16 @@ from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 from .irc import IRCPlugin
 
-class FollowingPlugin(CommandPlugin, PollPlugin):
+class PackageTracker(CommandPlugin, PollPlugin):
     poll_interval = 120
-
-    @CommandPlugin.config_types(persist_file=str)
-    def __init__(self, core, persist_file='shipping-following.json'):
-        super(FollowingPlugin, self).__init__(core)
+    
+    @CommandPlugin.config_types(persist_file=str, auth_file=str)
+    def __init__(self, core, persist_file='shipping-following.json', auth_file=None):
+        super(PackageTracker, self).__init__(core)
         self._persist_file = persist_file
+        self._auth_file = auth_file
         self._data = {}
         self.load_data()
-
-    @CommandPlugin.register_command(r'pdebug')
-    def debug_command(self, chans, name, match, direct, reply):
-        for tn in self._data.keys():
-            p = packagetrack.Package(tn)
-            self.output_status(p)
 
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?")
     def track_command(self, chans, name, match, direct, reply):
@@ -31,7 +26,7 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                 self.save_data()
                 reply('WELL FINE THEN, I won\'t tell you about that package anymore')
             else:
-                package = packagetrack.Package(tn)
+                package = self.get_package(tn)
                 try:
                     state = package.track()
                 except (packagetrack.UnsupportedShipper,
@@ -43,7 +38,7 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                         p=package, msg=e, url=short_url(package.url())))
                 else:
                     if state.status.lower().startswith('delivered'):
-                        reply('PROTIP: That package has already been delivered...')
+                        reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
                             'owner': name,
@@ -55,18 +50,17 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                         self.save_data()
                         reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
-            packages = map(packagetrack.Package, self._data.keys())
+            packages = [self.get_package(tn) for tn in self._data.keys() if self._data[tn]['owner'] == name]
             if packages:
-                reply('I\'m watching these packages: {}'.format(
-                    ', '.join('({shipper}){tn}'.format(
-                        shipper=p.shipper, tn=p.tracking_number) for p in packages)))
+                for package in packages:
+                    self.output_status(package)
             else:
-                reply('I\'m not watching any packages right now')
+                reply('I\'m not watching any packages for you right now')
 
     def poll(self):
         delivered = []
         for (tn, data) in self._data.items():
-            package = packagetrack.Package(tn)
+            package = self.get_package(tn)
             new_state = package.track()
             new_update = int(time.mktime(new_state.last_update.timetuple()))
             if new_state.status.lower().startswith('delivered'):
@@ -103,8 +97,6 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
                     break
         else:
             self.parent.send_outgoing('default', msg)
-            #for chan in data['channels']:
-            #    self.parent.send_outgoing(chan, msg)
 
     def save_data(self):
         with open(self._persist_file, 'wb') as pf:
@@ -117,16 +109,22 @@ class FollowingPlugin(CommandPlugin, PollPlugin):
         except (IOError, ValueError):
             pass
 
+    def get_package(self, tn):
+        return packagetrack.Package(tn, configfile=self._auth_file)
 
-class TrackingPlugin(CommandPlugin):
+
+class PackageStatus(CommandPlugin):
     def __init__(self, core, auth_file=None):
-        super(TrackingPlugin, self).__init__(core)
-        self.auth_file = auth_file
+        super(PackageStatus, self).__init__(core)
+        self._auth_file = auth_file
 
-    @CommandPlugin.register_command(r"pstatus\s+([\w\d]+)")
+    @CommandPlugin.register_command(r"pstatus(?:\s+([\w\d]+))?")
     def status_command(self, chans, name, match, direct, reply):
+        if not match.group(1):
+            reply('Gotta give me a tracking number to check...')
+            return
         tn = match.group(1)
-        package = packagetrack.Package(tn, configfile=self.auth_file)
+        package = self.get_package(tn)
         try:
             info = package.track()
         except packagetrack.UnsupportedShipper:
@@ -158,3 +156,6 @@ class TrackingPlugin(CommandPlugin):
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
                 delivery_date=delivery_date,
                 url=short_url(package.url())))
+
+    def get_package(self, tn):
+        return packagetrack.Package(tn, configfile=self._auth_file)

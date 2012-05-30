@@ -3,6 +3,7 @@ import time
 import re
 
 from ..plugin import Plugin
+from ..core  import ET
 
 class Repeater(Plugin):
     """If the bot sees the same chat line two or more times, has a random
@@ -13,17 +14,18 @@ class Repeater(Plugin):
     """
     matcher = re.compile(r"^[^! ][^ ]{0,5}$")
 
-    @Plugin.config_types(timeout=int, chance=float)
-    def __init__(self, core, timeout=5, chance=0.7, *args):
+    @Plugin.config_types(timeout=int, chance=float, exceptions=ET.Element)
+    def __init__(self, core, timeout=5, chance=0.7, exceptions=None, *args):
         super(Repeater, self).__init__(core, *args)
         self.lastline = None
         self.lastmsg = 0
         self.timeout = timeout
         self.chance = chance
+        self.ignore_names = [el.text.strip().lower() for el in (exceptions if exceptions is not None else []) if el.tag.lower() == 'name']
         
     @Plugin.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
-        if direct: return
+        if direct or name in self.ignore_names: return
 
         match = self.matcher.match(msg)
         if match:
@@ -56,17 +58,19 @@ class NoU(Plugin):
     nomatch = re.compile(r"^no+!*$", re.I)
     umatch = re.compile(r"^u+!*$", re.I)
 
-    @Plugin.config_types(timeout=int, wait=int, chance=float)
-    def __init__(self, core, timeout=2, wait=2, chance=1.0, *args):
+    @Plugin.config_types(timeout=int, wait=int, chance=float, exceptions=ET.Element)
+    def __init__(self, core, timeout=2, wait=2, chance=1.0, exceptions=None, *args):
         super(NoU, self).__init__(core, *args)
         self.lastmsg = 0
         self.noseen = False
         self.timeout = timeout
         self.wait = wait
         self.chance = chance
+        self.ignore_names = [el.text.strip().lower() for el in (exceptions if exceptions is not None else []) if el.tag.lower() == 'name']
 
     @Plugin.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
+        if name in self.ignore_names: return
         if time.time() < self.lastmsg + self.timeout:
             return
 

@@ -22,9 +22,12 @@ class PackageTracker(CommandPlugin, PollPlugin):
         if match.group(1):
             tn = match.group(1)
             if tn in self._data.keys():
-                del self._data[tn]
-                self.save_data()
-                reply('WELL FINE THEN, I won\'t tell you about that package anymore')
+                if name == self._data[tn]['owner'] or 'admin' in chans:
+                    del self._data[tn]
+                    self.save_data()
+                    reply('WELL FINE THEN, I won\'t tell you about that package anymore')
+                else:
+                    reply('You can\'t tell me what to do, you\'re not even my real dad!')
             else:
                 package = self.get_package(tn)
                 try:
@@ -48,7 +51,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         }
                         self._data[tn] = data
                         self.save_data()
-                        reply('Looks like that package is at {state} right now, I\'ll let you know when it changes'.format(state=state.status))
+                        reply('Looks like that package is at "{state}" right now, I\'ll let you know when it changes'.format(state=state.status))
         else:
             packages = [self.get_package(tn) for tn in self._data.keys() if self._data[tn]['owner'] == name]
             if packages:

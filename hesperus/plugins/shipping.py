@@ -37,7 +37,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except packagetrack.service.TrackFailed as e:
-                    reply('HAHA NO, {p.shipper} said "{msg}" ({url})'.format(
+                    reply('Sorry, {p.shipper} said "{msg}" ({url})'.format(
                         p=package, msg=e, url=short_url(package.url())))
                 else:
                     if state.status.lower().startswith('delivered'):
@@ -51,7 +51,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         }
                         self._data[tn] = data
                         self.save_data()
-                        reply('Looks like that package is at "{state}" right now, I\'ll let you know when it changes'.format(state=state.status))
+                        reply('That\'s at "{state}" now, I\'ll let you know when it changes'.format(state=state.status))
         else:
             packages = [self.get_package(tn) for tn in self._data.keys() if self._data[tn]['owner'] == name]
             if packages:
@@ -124,7 +124,7 @@ class PackageStatus(CommandPlugin):
     @CommandPlugin.register_command(r"pstatus(?:\s+([\w\d]+))?")
     def status_command(self, chans, name, match, direct, reply):
         if not match.group(1):
-            reply('Gotta give me a tracking number to check...')
+            reply('What exactly do you want the status of?')
             return
         tn = match.group(1)
         package = self.get_package(tn)
@@ -137,7 +137,7 @@ class PackageStatus(CommandPlugin):
             self.log_warning('InvalidTrackingNumber: {}'.format(tn))
             reply('Are you sure you that\'s the right number?')
         except packagetrack.service.TrackFailed as e:
-            reply('HAHA NO, {p.shipper} said "{msg}" ({url})'.format(
+            reply('Sorry, {p.shipper} said "{msg}" ({url})'.format(
                 p=package, msg=e, url=short_url(package.url())))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(

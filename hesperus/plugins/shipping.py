@@ -7,8 +7,6 @@ from ..shorturl import short_url
 from .irc import IRCPlugin
 
 class PackageTracker(CommandPlugin, PollPlugin):
-    poll_interval = 120
-    
     @CommandPlugin.config_types(persist_file=str, auth_file=str)
     def __init__(self, core, persist_file='shipping-following.json', auth_file=None):
         super(PackageTracker, self).__init__(core)
@@ -17,7 +15,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self._data = {}
         self.load_data()
 
-    @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?")
+    @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
             tn = match.group(1)
@@ -44,6 +42,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
+                            'tag': match.group(2) if match.group(2) else tn,
                             'owner': name,
                             'channels': chans,
                             'direct': direct,
@@ -70,25 +69,30 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 delivered.append(tn)
             if data['last_update'] < new_update:
                 self._data[tn]['last_update'] = new_update
+                self.save_data()
                 self.output_status(package)
             yield
         for tn in delivered:
             del self._data[tn]
+        self.save_data()
 
     def output_status(self, package):
         state = package.track()
+        data = self._data[package.tracking_number]
         if state.status.lower().startswith('delivered'):
-            msg = '{package.shipper} has delivered {package.tracking_number}'.format(package=package)
+            msg = '{package.shipper} has delivered "{data[tag]}"'.format(
+                package=package, data=data)
         elif len(state.events) > 1:
-            msg = '{package.shipper} moved {package.tracking_number} from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
+            msg = '{package.shipper} moved "{data[tag]}" from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
+                data=data,
                 package=package,
                 oldstate=state.events[1],
                 newstate=state)
         else:
-            msg = '{package.shipper} moved {package.tracking_number} to {newstate.status}@{newstate.location}'.format(
+            msg = '{package.shipper} moved "{data[tag]}" to {newstate.status}@{newstate.location}'.format(
+                data=data,
                 package=package,
                 newstate=state)
-        data = self._data[package.tracking_number]
         msg = '{owner}: {msg} ({url})'.format(
             url=short_url(package.url()),
             owner=data['owner'],
@@ -100,6 +104,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     break
         else:
             self.parent.send_outgoing('default', msg)
+    
+    @property
+    def poll_interval(self):
+        base_interval = 120
+        return base_interval if len(self._data) < 2 else (base_interval / len(self._data))
 
     def save_data(self):
         with open(self._persist_file, 'wb') as pf:

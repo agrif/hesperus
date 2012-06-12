@@ -271,3 +271,18 @@ class PassivePlugin(CommandPlugin):
             wrapped._hesperus_command = True
             return wrapped
         return wrapper
+
+class PersistentPlugin(Plugin):
+    persitence_file = 'global.json'
+    _data = {}
+
+    def save_data(self):
+        with open(self.persitence_file, 'w') as pf:
+            json.dump(self._data, pf)
+
+    def load_data(self):
+        try:
+            with open(self.persitence_file, 'r') as pf:
+                self._data.update(json.load(pf))
+        except IOError as e:
+            self.log_warning('Error while loading persistent data: {}'.format(e))

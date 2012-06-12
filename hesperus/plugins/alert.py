@@ -16,6 +16,7 @@ class SMSAlerter(CommandPlugin, PollPlugin):
         self._data = {
             'messages': [],
             'users': {},
+            'contacts': {},
         }
         self.api = ApiConnection(api_user, api_pass)
         self.wait_period = wait_period
@@ -34,7 +35,7 @@ class SMSAlerter(CommandPlugin, PollPlugin):
                     contact = self.api.get_number_info([match.group(1)]).phones[0].sms_address
                 else:
                     contact = match.group(1)
-                self.log_debug('Using {} as contact for {}'.format(contact, name))
+                self.log_debug('Using {contact} as contact for {user}'.format(contact=contact, user=name))
                 self._data['users'][name] = {
                     'enabled': True,
                     'contact': contact,

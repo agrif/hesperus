@@ -31,7 +31,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             if contact not in self._data['contacts']:
                 self._data['contacts'][contact] = \
                     self.api.get_number_info([contact]).phones[0].sms_address
-                    self.save_data()
+                self.save_data()
             self.log_debug('Using {sms_addr} for {contact}'.format(
                 sms_addr=self._data['contacts'][contact],
                 contact=contact))

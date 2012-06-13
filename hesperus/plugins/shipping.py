@@ -63,7 +63,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
         delivered = []
         for (tn, data) in self._data.items():
             package = self.get_package(tn)
-            new_state = package.track()
+            try:
+                new_state = package.track()
+            except TrackFailed as e:
+                self.log_warning(e)
+                continue
             new_update = int(time.mktime(new_state.last_update.timetuple()))
             if new_state.status.lower().startswith('delivered'):
                 delivered.append(tn)

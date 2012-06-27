@@ -65,7 +65,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
             package = self.get_package(tn)
             try:
                 new_state = package.track()
-            except TrackFailed as e:
+            except packagetrack.service.TrackFailed as e:
                 self.log_warning(e)
                 continue
             new_update = int(time.mktime(new_state.last_update.timetuple()))

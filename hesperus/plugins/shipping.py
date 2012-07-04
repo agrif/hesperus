@@ -40,7 +40,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
                     reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
-                        p=package, msg=err, url=short_url(package.url))
+                        p=package, msg=err, url=short_url(package.url)))
                 else:
                     if state.status.lower().startswith('delivered'):
                         reply('Go check outside, that package has already been delivered...')
@@ -102,7 +102,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 package=package,
                 newstate=state)
         msg = '{owner}: {msg} ({url})'.format(
-            url=short_url(package.url,
+            url=short_url(package.url),
             owner=data['owner'],
             msg=msg)
         if data['direct'] and False:
@@ -115,7 +115,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
 
     @property
     def poll_interval(self):
-        base_interval = 120
+        base_interval = 300
         return base_interval if len(self._data) < 2 else (base_interval / len(self._data))
 
     def save_data(self):
@@ -152,7 +152,7 @@ class PackageStatus(CommandPlugin):
             reply('Dunno any carriers for a number like that')
         except TrackingFailure as err:
             reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
-                p=package, msg=err, url=short_url(package.url))
+                p=package, msg=err, url=short_url(package.url)))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(
                 etype=e.__class__.__name__, message=e.message, tn=tn)
@@ -172,7 +172,7 @@ class PackageStatus(CommandPlugin):
                 i=info,
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
                 delivery_date=delivery_date,
-                url=short_url(package.url))
+                url=short_url(package.url)))
 
     def get_package(self, tn):
         return packagetrack.Package(tn)

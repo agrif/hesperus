@@ -1,4 +1,6 @@
 import packagetrack
+from packagetrack.carriers.errors import *
+from packagetrack.configuration import DotFileConfig
 import time
 import datetime
 import json
@@ -11,8 +13,8 @@ class PackageTracker(CommandPlugin, PollPlugin):
     def __init__(self, core, persist_file='shipping-following.json', auth_file=None):
         super(PackageTracker, self).__init__(core)
         self._persist_file = persist_file
-        self._auth_file = auth_file
         self._data = {}
+        packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
 
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
@@ -30,13 +32,15 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 package = self.get_package(tn)
                 try:
                     state = package.track()
-                except (packagetrack.UnsupportedShipper,
-                        packagetrack.service.InvalidTrackingNumber):
+                except TrackingNumberFailure:
+                    reply('{carrier} doesn\'t have any info on that number'.format(
+                        carrier=package.carrier))
+                except UnsupportedTrackingNumber:
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
-                except packagetrack.service.TrackFailed as e:
-                    reply('Sorry, {p.shipper} said "{msg}" ({url})'.format(
-                        p=package, msg=e, url=short_url(package.url())))
+                except TrackingFailure as err:
+                    reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
+                        p=package, msg=err, url=short_url(package.url))
                 else:
                     if state.status.lower().startswith('delivered'):
                         reply('Go check outside, that package has already been delivered...')
@@ -65,7 +69,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
             package = self.get_package(tn)
             try:
                 new_state = package.track()
-            except packagetrack.service.TrackFailed as e:
+            except TrackingFailure as e:
                 self.log_warning(e)
                 continue
             new_update = int(time.mktime(new_state.last_update.timetuple()))
@@ -84,21 +88,21 @@ class PackageTracker(CommandPlugin, PollPlugin):
         state = package.track()
         data = self._data[package.tracking_number]
         if state.status.lower().startswith('delivered'):
-            msg = '{package.shipper} has delivered "{data[tag]}"'.format(
+            msg = '{package.carrier} has delivered "{data[tag]}"'.format(
                 package=package, data=data)
         elif len(state.events) > 1:
-            msg = '{package.shipper} moved "{data[tag]}" from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
+            msg = '{package.carrier} moved "{data[tag]}" from {oldstate.detail}@{oldstate.location} to {newstate.status}@{newstate.location}'.format(
                 data=data,
                 package=package,
-                oldstate=state.events[1],
+                oldstate=state.events[-2],
                 newstate=state)
         else:
-            msg = '{package.shipper} moved "{data[tag]}" to {newstate.status}@{newstate.location}'.format(
+            msg = '{package.carrier} moved "{data[tag]}" to {newstate.status}@{newstate.location}'.format(
                 data=data,
                 package=package,
                 newstate=state)
         msg = '{owner}: {msg} ({url})'.format(
-            url=short_url(package.url()),
+            url=short_url(package.url,
             owner=data['owner'],
             msg=msg)
         if data['direct'] and False:
@@ -108,7 +112,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     break
         else:
             self.parent.send_outgoing('default', msg)
-    
+
     @property
     def poll_interval(self):
         base_interval = 120
@@ -126,13 +130,13 @@ class PackageTracker(CommandPlugin, PollPlugin):
             pass
 
     def get_package(self, tn):
-        return packagetrack.Package(tn, configfile=self._auth_file)
+        return packagetrack.Package(tn)
 
 
 class PackageStatus(CommandPlugin):
     def __init__(self, core, auth_file=None):
         super(PackageStatus, self).__init__(core)
-        self._auth_file = auth_file
+        packagetrack.auto_register_carriers(DotFileConfig(auth_file))
 
     @CommandPlugin.register_command(r"pstatus(?:\s+([\w\d]+))?")
     def status_command(self, chans, name, match, direct, reply):
@@ -143,15 +147,12 @@ class PackageStatus(CommandPlugin):
         package = self.get_package(tn)
         try:
             info = package.track()
-        except packagetrack.UnsupportedShipper:
+        except UnsupportedTrackingNumber:
             self.log_warning('UnsupportedShipper: {}'.format(tn))
-            reply('Dunno any shippers for a number like that')
-        except packagetrack.service.InvalidTrackingNumber:
-            self.log_warning('InvalidTrackingNumber: {}'.format(tn))
-            reply('Are you sure you that\'s the right number?')
-        except packagetrack.service.TrackFailed as e:
-            reply('Sorry, {p.shipper} said "{msg}" ({url})'.format(
-                p=package, msg=e, url=short_url(package.url())))
+            reply('Dunno any carriers for a number like that')
+        except TrackingFailure as err:
+            reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
+                p=package, msg=err, url=short_url(package.url))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(
                 etype=e.__class__.__name__, message=e.message, tn=tn)
@@ -159,9 +160,9 @@ class PackageStatus(CommandPlugin):
             reply(msg)
         else:
             if info.status.lower().startswith('delivered'):
-                msg = '{p.shipper} says it has been delivered as of {last_update}'
+                msg = '{p.carrier} says it has been delivered as of {last_update}'
             else:
-                msg = '{p.shipper} has it at {i.status}@{i.location} as of {last_update}, ' + \
+                msg = '{p.carrier} has it at {i.status}@{i.location} as of {last_update}, ' + \
                     'should be delivered {delivery_date}'
             msg += ' ({url})'
             delivery_date = 'UNKNOWN' if info.delivery_date is None else \
@@ -171,7 +172,7 @@ class PackageStatus(CommandPlugin):
                 i=info,
                 last_update=info.last_update.strftime('%m/%d %H:%M'),
                 delivery_date=delivery_date,
-                url=short_url(package.url())))
+                url=short_url(package.url))
 
     def get_package(self, tn):
-        return packagetrack.Package(tn, configfile=self._auth_file)
+        return packagetrack.Package(tn)

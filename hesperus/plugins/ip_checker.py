@@ -8,7 +8,7 @@ class IpCheckerPlugin(PassivePlugin):
     def check_ip(self, match, reply):
         ip = match.group(1)
         now = int(time())
-        if self._ip_on_cooldown(ip):
+        if not self._ip_on_cooldown(ip):
             try:
                 (host, _, _) = socket.gethostbyaddr(ip)
             except Exception as err:

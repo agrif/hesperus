@@ -8,7 +8,7 @@ class IpCheckerPlugin(PassivePlugin):
     def check_ip(self, match, reply):
         ip = match.group(1)
         now = int(time())
-        if ip in self._recent_ips && now - self._recent_ips[ip] > 15:
+        if ip in self._recent_ips and now - self._recent_ips[ip] > 15:
             try:
                 (host, _, _) = socket.gethostbyaddr(ip)
             except Exception as err:

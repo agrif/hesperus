@@ -18,5 +18,5 @@ class IpCheckerPlugin(PassivePlugin):
                 self._recent_ips[ip] = now
 
     def _ip_on_cooldown(self, ip):
-        return !(ip not in self._recent_ips or \
+        return not (ip not in self._recent_ips or \
             (ip in self._recent_ips and int(time()) - self._recent_ips[ip] > 15))

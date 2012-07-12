@@ -42,7 +42,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
                         p=package, msg=err, url=short_url(package.url)))
                 else:
-                    if state.status.lower().startswith('delivered'):
+                    if state.is_delivered:
                         reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
@@ -73,7 +73,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 self.log_warning(e)
                 continue
             new_update = int(time.mktime(new_state.last_update.timetuple()))
-            if new_state.status.lower().startswith('delivered'):
+            if new_state.is_delivered:
                 delivered.append(tn)
             if data['last_update'] < new_update:
                 self._data[tn]['last_update'] = new_update
@@ -87,7 +87,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
     def output_status(self, package):
         state = package.track()
         data = self._data[package.tracking_number]
-        if state.status.lower().startswith('delivered'):
+        if state.is_delivered:
             msg = '{package.carrier} has delivered "{data[tag]}"'.format(
                 package=package, data=data)
         elif len(state.events) > 1:
@@ -159,7 +159,7 @@ class PackageStatus(CommandPlugin):
             self.log_warning(msg)
             reply(msg)
         else:
-            if info.status.lower().startswith('delivered'):
+            if info.is_delivered:
                 msg = '{p.carrier} says it has been delivered as of {last_update}'
             else:
                 msg = '{p.carrier} has it at {i.status}@{i.location} as of {last_update}, ' + \

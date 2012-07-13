@@ -39,7 +39,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
-                    reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
+                    reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
                         p=package, msg=err, url=short_url(package.url)))
                 else:
                     if state.is_delivered:
@@ -101,7 +101,10 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 data=data,
                 package=package,
                 newstate=state)
-        msg = '{owner}: {msg} ({url})'.format(
+        if not state.is_delivered and state.delivery_date:
+            hours = int((state.delivery_date - datetime.datetime.now()).total_seconds() // 3600)
+            msg += ', delivery is T minus {hours} hours'.format(hours=hours)
+        msg = '{owner}: {msg} <{url}>'.format(
             url=short_url(package.url),
             owner=data['owner'],
             msg=msg)
@@ -151,7 +154,7 @@ class PackageStatus(CommandPlugin):
             self.log_warning('UnsupportedShipper: {}'.format(tn))
             reply('Dunno any carriers for a number like that')
         except TrackingFailure as err:
-            reply('Sorry, {p.carrier} said "{msg}" ({url})'.format(
+            reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
                 p=package, msg=err, url=short_url(package.url)))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(
@@ -163,9 +166,9 @@ class PackageStatus(CommandPlugin):
                 msg = '{p.carrier} says it has been delivered as of {last_update}'
             else:
                 msg = '{p.carrier} has it at {i.status}@{i.location} as of {last_update}, ' + \
-                    'should be delivered {delivery_date}'
-            msg += ' ({url})'
-            delivery_date = 'UNKNOWN' if info.delivery_date is None else \
+                    'and it should be delivered {delivery_date}'
+            msg += ' <{url}>'
+            delivery_date = '... eventually' if info.delivery_date is None else \
                 ('today' if info.delivery_date.date() == datetime.date.today() else info.delivery_date.strftime('%m/%d'))
             reply(msg.format(
                 p=package,

@@ -1,5 +1,6 @@
 from ..plugin import PollPlugin
 import requests
+import json
 
 class MojangStatus(PollPlugin):
     #STATUS_URL = 'http://status.mojang.com/check'
@@ -14,17 +15,18 @@ class MojangStatus(PollPlugin):
                 if status != new_status[server]:
                     self._send_output(server, status, new_status[server])
         self._last_status = new_status
+        yield
     
-    def _send_output(server, old_status, new_status):
+    def _send_output(self, server, old_status, new_status):
         msg = 'Mojang server {server} changed status from "{old}" to "{new}"'.format(
             server=server,
             old=old_status,
             new=new_status)
         for chan in self.channels:
-            self.parent.send_outgoing(msg)
+            self.parent.send_outgoing(chan, msg)
     
     def _get_current_status(self):
-        status_json = requests.get(self.STATUS_URL).json
+        status_json = json.loads(requests.get(self.STATUS_URL).text)
         status = {}
         for element in status_json:
             key, value = next(element.iteritems())

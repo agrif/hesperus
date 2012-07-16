@@ -3,9 +3,8 @@ import requests
 import json
 
 class MojangStatus(PollPlugin):
-    #STATUS_URL = 'http://status.mojang.com/check'
-    STATUS_URL = 'http://waysaboutstuff.com/check.json'
-    poll_interval = 15
+    STATUS_URL = 'http://status.mojang.com/check'
+    poll_interval = 30
     _last_status = None
     
     def poll(self):
@@ -14,6 +13,7 @@ class MojangStatus(PollPlugin):
             for (server, status) in self._last_status.iteritems():
                 if status != new_status[server]:
                     self._send_output(server, status, new_status[server])
+                yield
         self._last_status = new_status
         yield
     

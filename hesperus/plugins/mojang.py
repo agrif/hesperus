@@ -26,7 +26,10 @@ class MojangStatus(PollPlugin):
             self.parent.send_outgoing(chan, msg)
     
     def _get_current_status(self):
-        status_json = json.loads(requests.get(self.STATUS_URL).text)
+        try:
+            status_json = json.loads(requests.get(self.STATUS_URL).text)
+        except:
+            return self._last_status
         status = {}
         for element in status_json:
             key, value = next(element.iteritems())

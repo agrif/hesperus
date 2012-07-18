@@ -4,6 +4,7 @@ from packagetrack.configuration import DotFileConfig
 import time
 import datetime
 import json
+import random
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 from .irc import IRCPlugin
@@ -16,6 +17,9 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self._data = {}
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
+        with open('/usr/share/dict/words', 'r') as words:
+            self._word_database = [line.strip() for line in words \
+                if not any(str(i) in line for i in range(10)) and len(line) <= 9]
 
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
     def track_command(self, chans, name, match, direct, reply):
@@ -46,7 +50,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
-                            'tag': match.group(2) if match.group(2) else tn,
+                            'tag': match.group(2) if match.group(2) else self._generate_tag(),
                             'owner': name,
                             'channels': chans,
                             'direct': direct,
@@ -54,7 +58,8 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         }
                         self._data[tn] = data
                         self.save_data()
-                        reply('That\'s at "{state}" now, I\'ll let you know when it changes'.format(state=state.status))
+                        reply('"{tag}" is at "{state}" now, I\'ll let you know when it changes'.format(
+                            state=state.status, tag=data['tag']))
         else:
             packages = [self.get_package(tn) for tn in self._data.keys() if self._data[tn]['owner'] == name]
             if packages:
@@ -134,6 +139,9 @@ class PackageTracker(CommandPlugin, PollPlugin):
 
     def get_package(self, tn):
         return packagetrack.Package(tn)
+    
+    def _generate_tag(self):
+        return ' '.join(random.choice(self._word_database).capitalize() for i in range(3))
 
 
 class PackageStatus(CommandPlugin):

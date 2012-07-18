@@ -28,7 +28,8 @@ class MojangStatus(PollPlugin):
     def _get_current_status(self):
         try:
             status_json = json.loads(requests.get(self.STATUS_URL).text)
-        except:
+        except requests.exceptions.ConnectionError as err:
+            self.log_warning(err)
             return self._last_status
         status = {}
         for element in status_json:

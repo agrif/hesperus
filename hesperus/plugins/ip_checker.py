@@ -14,7 +14,8 @@ class IpCheckerPlugin(PassivePlugin):
     def check_ip(self, match, reply):
         ip = match.group(1)
         now = int(time())
-        if not self._ip_on_cooldown(ip):
+        if not self._ip_on_cooldown(ip) and \
+                not any(ip.startswith(subnet) for subnet in ['127.', '10.', '192.168.', '172.']):
             try:
                 (host, _, _) = socket.gethostbyaddr(ip)
             except Exception as err:

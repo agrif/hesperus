@@ -4,7 +4,7 @@ import json
 
 class MojangStatus(PollPlugin):
     STATUS_URL = 'http://status.mojang.com/check'
-    poll_interval = 30
+    poll_interval = 90
     _last_status = None
     
     def poll(self):
@@ -13,7 +13,6 @@ class MojangStatus(PollPlugin):
             for (server, status) in self._last_status.iteritems():
                 if status != new_status[server]:
                     self._send_output(server, status, new_status[server])
-                yield
         self._last_status = new_status
         yield
     
@@ -28,7 +27,7 @@ class MojangStatus(PollPlugin):
     def _get_current_status(self):
         try:
             status_json = json.loads(requests.get(self.STATUS_URL).text)
-        except requests.exceptions.ConnectionError as err:
+        except (requests.exceptions.ConnectionError, ValueError) as err:
             self.log_warning(err)
             return self._last_status
         status = {}

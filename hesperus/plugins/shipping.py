@@ -17,10 +17,15 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self._data = {}
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
-        with open('/usr/share/dict/words', 'r') as words:
-            self._word_database = [line.strip() for line in words \
-                if not any(str(i) in line for i in range(10)) and len(line) <= 9]
-
+        try:
+            with open('/usr/share/dict/words', 'r') as words:
+                self._word_database = [line.strip() for line in words \
+                    if not any(str(i) in line for i in range(10)) and len(line) <= 9]
+            self.log_debug('Found %d words for tag generation' % len(self._word_database))
+        except IOError as err:
+            self._word_database = None
+            self.log_debug('Word database not loaded: %s' % err)
+    
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
@@ -140,8 +145,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
     def get_package(self, tn):
         return packagetrack.Package(tn)
     
-    def _generate_tag(self):
-        return ' '.join(random.choice(self._word_database).capitalize() for i in range(3))
+    def _generate_tag(self, tn):
+        if self._word_database is not None:
+            return ' '.join(random.choice(self._word_database).capitalize() for i in range(3))
+        else:
+            return tn
 
 
 class PackageStatus(CommandPlugin):

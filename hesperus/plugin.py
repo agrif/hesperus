@@ -4,6 +4,7 @@ import time
 from copy import copy
 import traceback
 import re
+import json
 
 class ConfigurationError(Exception):
     pass
@@ -273,7 +274,7 @@ class PassivePlugin(CommandPlugin):
         return wrapper
 
 class PersistentPlugin(Plugin):
-    persitence_file = 'global.json'
+    persistence_file = 'global.json'
     _data = {}
 
     def save_data(self):
@@ -284,5 +285,5 @@ class PersistentPlugin(Plugin):
         try:
             with open(self.persitence_file, 'r') as pf:
                 self._data.update(json.load(pf))
-        except IOError as e:
-            self.log_warning('Error while loading persistent data: {}'.format(e))
+        except (ValueError,IOError) as e:
+            self.log_warning('Error while loading persistent data: {err}'.format(err=e))

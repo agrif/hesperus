@@ -278,12 +278,12 @@ class PersistentPlugin(Plugin):
     _data = {}
 
     def save_data(self):
-        with open(self.persitence_file, 'w') as pf:
-            json.dump(self._data, pf)
+        with open(self.persistence_file, 'w') as pf:
+            json.dump(self._data, pf, indent=4)
 
     def load_data(self):
         try:
-            with open(self.persitence_file, 'r') as pf:
+            with open(self.persistence_file, 'r') as pf:
                 self._data.update(json.load(pf))
         except (ValueError,IOError) as e:
             self.log_warning('Error while loading persistent data: {err}'.format(err=e))

@@ -158,7 +158,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         envlp['To'] = dest
         try:
             conn = smtplib.SMTP(*self.mail_server)
-            conn.sendmail(envelope['From'], [envelope['To'],], envelope.as_string())
+            conn.sendmail(envlp['From'], [envlp['To'],], envlp.as_string())
             conn.quit()
         except Exception as err:
             self.log_warning(err)

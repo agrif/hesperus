@@ -46,11 +46,11 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         else:
             if sms_contact is not None:
                 self._data['users'][name]['sms_contact'] = sms_contact
+                self.log_debug('Enabled SMS alerts for ' + name)
             if email_contact is not None:
                 self._data['users'][name]['email_contact'] = email_contact
+                self.log_debug('Enabled email alerts for ' + name)
         self.save_data()
-        self.log_debug('Set alerts for {name} -> {contact}'.format(
-            name=name, contact='|'.join([sms_contact, email_contact])))
 
     update_user = add_user
 

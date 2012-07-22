@@ -21,7 +21,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
     def __init__(self, core, api_sid, api_key, src_number, wait_period=900,
         grace_period=300, src_email='hesperus@localhost', mail_server='localhost:25'):
         super(SMSAlerter, self).__init__(core)
-        self.api = TwilioRestClient()
+        self.api = TwilioRestClient(api_sid, api_key)
         self.wait_period = wait_period
         self.grace_period = grace_period
         self.src_number = src_number

@@ -55,7 +55,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
-                            'tag': match.group(2) if match.group(2) else self._generate_tag(),
+                            'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
                             'owner': name,
                             'channels': chans,
                             'direct': direct,

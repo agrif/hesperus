@@ -49,7 +49,10 @@ class ImapWatcher(PollPlugin):
             self.parent.send_outgoing(chan, message)
 
     def _get_new_messages(self):
-        conn = self._get_conn()
+        try:
+            conn = self._get_conn()
+        except Exception:
+            return []
         (_, (new_message_ids,)) = conn.search(None, '(UNSEEN)')
         if not new_message_ids:
             new_messages = []

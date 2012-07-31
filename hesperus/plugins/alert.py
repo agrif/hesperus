@@ -2,6 +2,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 import re
+from textwrap import wrap
 
 from ..plugin import CommandPlugin, PassivePlugin, PollPlugin, PersistentPlugin
 from data247.api import ApiConnection
@@ -27,7 +28,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         self.load_data()
 
     def verify_contact(self, contact):
-        if re.match(r'^\d+$', contact):
+        if re.match(r'^\d{10}$', contact):
             if contact not in self._data['contacts']:
                 self._data['contacts'][contact] = \
                     self.api.get_number_info([contact]).phones[0].sms_address
@@ -43,7 +44,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
 
     def remove_user(self, name):
         if name in self._data['users']:
-            del self._data['users']
+            del self._data['users'][name]
             self.save_data()
 
     def add_user(self, name, contact):
@@ -69,7 +70,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         self._data['users'][name]['last_active'] = int(time.time())
         #remove queued messages
         self._data['messages'] = [msg for msg in self._data['messages'] \
-            if msg['target'] != name]
+            if msg['dest'] != name]
         self.save_data()
 
     @CommandPlugin.register_command(r'smsalert(?:\s+(.+))?')
@@ -78,7 +79,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             contact = self.verify_contact(match.group(1))
             if not contact:
                 reply('I don\'t know what to do with that, I need a 10 digit number or an email address')
-            if name in self._data['users']:
+            elif name in self._data['users']:
                 self.update_user(name, contact)
                 reply('I\'ve updated your alert address')
             else:
@@ -87,20 +88,23 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         else:
             if name in self._data['users']:
                 self.remove_user(name)
+                reply('Sorry, I\'ll stop bugging you then')
             else:
                 reply('You need to give me a way to contact you if you want alerts')
 
     @PassivePlugin.register_pattern(r'([\w\d]+)[:,]\s+(.+)')
     def ping_message(self, chans, name, match, direct, reply):
         target = match.group(1)
-        target_msg = match.group(2)
+        target_msg = match.group(2).strip()
+        if len(target_msg) > 100:
+            target_msg = wrap(target_msg, 100)[0].strip() + '...'
         now = int(time.time())
         if target in self._data['users']:
             if self._data['users'][target]['enabled'] and \
                     now - self._data['users'][target]['last_active'] > self.wait_period:
                 self.add_message(src=name, dest=target, msg=target_msg, ts=now)
 
-    @PassivePlugin.register_pattern(r'')
+    @PassivePlugin.register_pattern(r'^')
     def activity_watch(self, chans, name, match, direct, reply):
         if name in self._data['users']:
             self.update_last_active(name)
@@ -116,6 +120,7 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             for msg in to_send:
                 self.send_message(msg)
                 self._data['messages'].remove(msg)
+                self.update_last_active(msg['dest'])
             self.save_data()
         yield
 

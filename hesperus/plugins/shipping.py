@@ -45,7 +45,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     reply('{carrier} doesn\'t have any info on that number'.format(
                         carrier=package.carrier))
                 except UnsupportedTrackingNumber:
-                    self.log_warning('bad tracking number: {}'.format(tn))
+                    self.log_warning('bad tracking number: {0}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
                     reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
@@ -167,7 +167,7 @@ class PackageStatus(CommandPlugin):
         try:
             info = package.track()
         except UnsupportedTrackingNumber:
-            self.log_warning('UnsupportedShipper: {}'.format(tn))
+            self.log_warning('UnsupportedShipper: {0}'.format(tn))
             reply('Dunno any carriers for a number like that')
         except TrackingFailure as err:
             reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(

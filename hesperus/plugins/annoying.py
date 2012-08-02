@@ -125,32 +125,19 @@ class ORLY(Plugin):
             reply("YA RLY!")
             return
 
-PRONOUN_MAP = {
-    'he': ['she', 'her'],
-    'she': ['he', 'his'],
-    'it': ['I', 'my', 'self'],
-}
-
 class ThatsWhatSheSaid(PassivePlugin):
     PHRASE = 'That\'s what {pronoun} said!'
     
     @PassivePlugin.config_types(chance=float)
-    def __init__(self, core, chance=0.9, *args):
+    def __init__(self, core, chance=0.1, *args):
         super(ThatsWhatSheSaid, self).__init__(core, *args)
         self._chance = chance
     
-    @PassivePlugin.register_pattern(r'\b(%s)\b' % '|'.join(k for p in PRONOUN_MAP for k in PRONOUN_MAP[p]))
+    @PassivePlugin.register_pattern(r'\b(he|his|she|her|[Ii]|my(?:self)?)\b')
     def misogyny(self, match, reply):
         pn = match.group(1)
         self.log_debug('Hit on pronoun: %s' % pn)
         roll = random.random()
-        if roll > self._chance:
-            self.log_debug('Replying, roll was %f' % roll)
-            reply(self.PHRASE.format(pronoun=self._get_pronoun(pn)))
-    
-    def _get_pronoun(self, pn):
-        for k in PRONOUN_MAP:
-            if pn in PRONOUN_MAP[k]:
-                return k
-        else:
-            return 'she'    
+        if roll < self._chance:
+            self.log_debug('Replying, %s < %s' % (roll, self._chance))
+            reply(self.PHRASE.format(pronoun=random.choice(['he', 'she'])))

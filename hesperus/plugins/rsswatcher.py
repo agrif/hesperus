@@ -1,4 +1,5 @@
 import time
+from HTMLParser import HTMLParser
 
 import feedparser
 
@@ -22,7 +23,10 @@ class Feed(object):
         return feedobj
 
     def _format_entry(self, feed, entry):
-        return self.formatstr.format(f=feed, e=entry) + short_url(entry['link'])
+        #decode htmlentities, then strip out utf-8 chars
+        entry['description'] = ''.join(c for c in HTMLParser().unescape(entry['description']) if ord(c) < 128)
+        entry['short_link'] = short_url(entry['link'])
+        return self.formatstr.format(f=feed, e=entry)
 
     def get_new_events(self):
         """Returns an iterator over formatted strings for any new entries to

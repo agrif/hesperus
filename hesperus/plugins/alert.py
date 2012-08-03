@@ -7,10 +7,10 @@ from textwrap import wrap
 from ..plugin import CommandPlugin, PassivePlugin, PollPlugin, PersistentPlugin
 from twilio.rest import TwilioRestClient
 
-class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
+class IdleAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
     SMS_CHAR_LIMIT = 140
     poll_interval = 15
-    persistence_file = 'sms-alerter.json'
+    persistence_file = 'idle-alerter.json'
     _data = {
         'messages': [],
         'users': {},
@@ -20,8 +20,12 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             grace_period=int, src_number=str, src_email=str, mail_server=str)
     def __init__(self, core, api_sid, api_key, src_number, wait_period=900,
         grace_period=300, src_email='hesperus@localhost', mail_server='localhost:25'):
-        super(SMSAlerter, self).__init__(core)
-        self.api = TwilioRestClient(api_sid, api_key)
+        super(IdleAlerter, self).__init__(core)
+        try:
+            self.api = TwilioRestClient(api_sid, api_key)
+        except Exception as err:
+            self.log_warning('disabling sms capability: %s' % err)
+            self.api = None
         self.wait_period = wait_period
         self.grace_period = grace_period
         self.src_number = src_number
@@ -89,7 +93,9 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         if match.group(1):
             if re.match(r'^(\+\d{10,}|\d{10})$', match.group(1)):
                 sms_number = match.group(1)
-                if name in self._data['users']:
+                if self.api is None:
+                    reply('Sorry, I can\'t do SMS alerts right now')
+                elif name in self._data['users']:
                     self.update_user(name, sms_contact=sms_number)
                     reply('I\'ve updated your SMS alert address')
                 else:

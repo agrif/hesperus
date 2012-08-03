@@ -15,7 +15,7 @@ class Feed(object):
         # Go ahead and fetch the feed so we can see what entries are already there
         feedobj = self._fetch()
         self.seen_entries = set(
-                e.id for e in feedobj.entries
+                e.id if hasattr(e, 'id') else e.published for e in feedobj.entries
                 )
 
     def _fetch(self):

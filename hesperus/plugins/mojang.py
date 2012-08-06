@@ -27,16 +27,15 @@ class MojangStatus(PollPlugin):
                     else:
                         if server in self._watched and \
                                 int(time.time()) - self._watched[server] > self.GRACE_PERIOD:
-                            self._send_output(server, status, new_status[server])
+                            self._send_output(server, new_status[server])
                             del self._watched[server]
             self._last_status = new_status
         yield
     
-    def _send_output(self, server, old_status, new_status):
-        msg = 'Mojang server {server} changed status from "{old}" to "{new}"'.format(
+    def _send_output(self, server, status):
+        msg = 'Mojang server {server} changed status to "{status}"'.format(
             server=server,
-            old=old_status,
-            new=new_status)
+            status=status)
         for chan in self.channels:
             self.parent.send_outgoing(chan, msg)
     

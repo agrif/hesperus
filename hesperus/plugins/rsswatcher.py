@@ -25,7 +25,7 @@ class Feed(object):
     def _format_entry(self, feed, entry):
         #decode htmlentities, then strip out utf-8 chars
         entry['description'] = ''.join(c for c in HTMLParser().unescape(entry['description']) if ord(c) < 128)
-        entry['short_link'] = short_url(entry['link'])
+        entry['short_link'] = short_url(entry['link']) if 'link' in entry else short_url(self.url)
         return self.formatstr.format(f=feed, e=entry)
 
     def get_new_events(self):
@@ -36,8 +36,9 @@ class Feed(object):
         feedobj = self._fetch()
 
         for entry in feedobj.entries:
-            if entry.id not in self.seen_entries:
-                self.seen_entries.add(entry.id)
+            key = entry.id if hasattr(entry, 'id') else entry.published
+            if key not in self.seen_entries:
+                self.seen_entries.add(key)
                 yield self._format_entry(feedobj.feed, entry)
 
     def __str__(self):

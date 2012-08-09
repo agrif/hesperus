@@ -128,16 +128,18 @@ class ORLY(Plugin):
 class ThatsWhatSheSaid(PassivePlugin):
     PHRASE = 'That\'s what {pronoun} said!'
     
-    @PassivePlugin.config_types(chance=float)
-    def __init__(self, core, chance=0.1, *args):
+    @PassivePlugin.config_types(chance=float, max_message_length=int)
+    def __init__(self, core, chance=0.1, max_message_length=140, *args):
         super(ThatsWhatSheSaid, self).__init__(core, *args)
         self._chance = chance
+        self._max_message_length = max_message_length
     
-    @PassivePlugin.register_pattern(r'\b(he|his|she|her|[Ii]|my(?:self)?)\b')
+    @PassivePlugin.register_pattern(r'\b(he|his|she|her|[Ii](?!\')|my(?:self)?|your?)\b')
     def misogyny(self, match, reply):
-        pn = match.group(1)
-        self.log_debug('Hit on pronoun: %s' % pn)
-        roll = random.random()
-        if roll < self._chance:
-            self.log_debug('Replying, %s < %s' % (roll, self._chance))
-            reply(self.PHRASE.format(pronoun=random.choice(['he', 'she'])))
+        if len(match.string) < self._max_message_length:
+            pn = match.group(1)
+            self.log_debug('Hit on pronoun: %s' % pn)
+            roll = random.random()
+            if roll < self._chance:
+                self.log_debug('Replying, %s < %s' % (roll, self._chance))
+                reply(self.PHRASE.format(pronoun=random.choice(['he', 'she'])))

@@ -5,59 +5,56 @@ import re
 from textwrap import wrap
 
 from ..plugin import CommandPlugin, PassivePlugin, PollPlugin, PersistentPlugin
-from data247.api import ApiConnection
+from twilio.rest import TwilioRestClient
 
-class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
+class IdleAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
+    SMS_CHAR_LIMIT = 140
     poll_interval = 15
-    persistence_file = 'sms-alerter.json'
+    persistence_file = 'idle-alerter.json'
     _data = {
         'messages': [],
         'users': {},
-        'contacts': {},
     }
 
-    @CommandPlugin.config_types(api_user=str, api_pass=str, wait_period=int, grace_period=int, mail_server=str, src_email=str)
-    def __init__(self, core, api_user, api_pass, wait_period=900, grace_period=300,
-                mail_server='localhost:25', src_email='hesperus@localhost'):
-        super(SMSAlerter, self).__init__(core)
-        self.api = ApiConnection(api_user, api_pass)
+    @CommandPlugin.config_types(api_sid=str, api_key=str, wait_period=int,
+            grace_period=int, src_number=str, src_email=str, mail_server=str)
+    def __init__(self, core, api_sid, api_key, src_number, wait_period=900,
+        grace_period=300, src_email='hesperus@localhost', mail_server='localhost:25'):
+        super(IdleAlerter, self).__init__(core)
+        try:
+            self.api = TwilioRestClient(api_sid, api_key)
+        except Exception as err:
+            self.log_warning('disabling sms capability: %s' % err)
+            self.api = None
         self.wait_period = wait_period
         self.grace_period = grace_period
-        self.mail_server = mail_server.split(':')
+        self.src_number = src_number
         self.src_email = src_email
+        self.mail_server = mail_server.split(':')
         self.load_data()
-
-    def verify_contact(self, contact):
-        if re.match(r'^\d{10}$', contact):
-            if contact not in self._data['contacts']:
-                self._data['contacts'][contact] = \
-                    self.api.get_number_info([contact]).phones[0].sms_address
-                self.save_data()
-            self.log_debug('Using {sms_addr} for {contact}'.format(
-                sms_addr=self._data['contacts'][contact],
-                contact=contact))
-            return self._data['contacts'][contact]
-        elif re.match(r'^\S+@(?:[\w\d-]+\.)*[\w\d-]+$', contact):
-            return contact
-        else:
-            return None
 
     def remove_user(self, name):
         if name in self._data['users']:
             del self._data['users'][name]
             self.save_data()
 
-    def add_user(self, name, contact):
+    def add_user(self, name, sms_contact=None, email_contact=None):
         now = int(time.time())
-        self._data['users'][name] = {
-            'enabled': True,
-            'contact': contact,
-            'last_active': now,
-        }
+        if name not in self._data['users']:
+            self._data['users'][name] = {
+                'enabled': True,
+                'sms_contact': sms_contact,
+                'email_contact': email_contact,
+                'last_active': now,
+            }
+        else:
+            if sms_contact is not None:
+                self._data['users'][name]['sms_contact'] = sms_contact
+                self.log_debug('Enabled SMS alerts for ' + name)
+            if email_contact is not None:
+                self._data['users'][name]['email_contact'] = email_contact
+                self.log_debug('Enabled email alerts for ' + name)
         self.save_data()
-        self.log_debug('Enabled alerts for {name} -> {contact}'.format(
-            name=name,
-            contact=contact))
 
     update_user = add_user
 
@@ -73,18 +70,17 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             if msg['dest'] != name]
         self.save_data()
 
-    @CommandPlugin.register_command(r'smsalert(?:\s+(.+))?')
-    def alert_command(self, chans, name, match, direct, reply):
+    @CommandPlugin.register_command(r'emailalert(?:\s+(.+))?')
+    def email_alert_command(self, chans, name, match, direct, reply):
         if match.group(1):
-            contact = self.verify_contact(match.group(1))
-            if not contact:
-                reply('I don\'t know what to do with that, I need a 10 digit number or an email address')
-            elif name in self._data['users']:
-                self.update_user(name, contact)
-                reply('I\'ve updated your alert address')
-            else:
-                self.add_user(name, contact)
-                reply('Ok, I\'ll send you an alert if someone pings you')
+            if re.match(r'^.+@.+$', match.group(1)):
+                email_addr = match.group(1)
+                if name in self._data['users']:
+                    self.update_user(name, email_contact=email_addr)
+                    reply('I\'ve updated your email alert address')
+                else:
+                    self.add_user(name, email_contact=email_addr)
+                    reply('Ok, I\'ll send you an alert if someone pings you')
         else:
             if name in self._data['users']:
                 self.remove_user(name)
@@ -92,12 +88,32 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
             else:
                 reply('You need to give me a way to contact you if you want alerts')
 
-    @PassivePlugin.register_pattern(r'([\w\d]+)[:,]\s+(.+)')
+    @CommandPlugin.register_command(r'smsalert(?:\s+(.+))?')
+    def sms_alert_command(self, chans, name, match, direct, reply):
+        if match.group(1):
+            if re.match(r'^(\+\d{10,}|\d{10})$', match.group(1)):
+                sms_number = match.group(1)
+                if self.api is None:
+                    reply('Sorry, I can\'t do SMS alerts right now')
+                elif name in self._data['users']:
+                    self.update_user(name, sms_contact=sms_number)
+                    reply('I\'ve updated your SMS alert address')
+                else:
+                    self.add_user(name, sms_contact=sms_number)
+                    reply('Ok, I\'ll send you an alert if someone pings you')
+            else:
+                reply('I don\'t know what to do with that, I need a 10+ digit phone number')
+        else:
+            if name in self._data['users']:
+                self.remove_user(name)
+                reply('Sorry, I\'ll stop bugging you then')
+            else:
+                reply('You need to give me a way to contact you if you want alerts')
+
+    @PassivePlugin.register_pattern(r'([\S]+)[:,]\s+(.+)')
     def ping_message(self, chans, name, match, direct, reply):
         target = match.group(1)
         target_msg = match.group(2).strip()
-        if len(target_msg) > 100:
-            target_msg = wrap(target_msg, 100)[0].strip() + '...'
         now = int(time.time())
         if target in self._data['users']:
             if self._data['users'][target]['enabled'] and \
@@ -125,15 +141,32 @@ class SMSAlerter(CommandPlugin, PollPlugin, PersistentPlugin):
         yield
 
     def send_message(self, message):
-        envlp = MIMEText('{msg[src]} said: {msg[msg]}'.format(msg=message))
-        envlp['Subject'] = 'IRCAlert for {msg[dest]}'.format(msg=message)
-        envlp['From'] = self.src_email
-        envlp['To'] = self._data['users'][message['dest']]['contact']
-        self._send_email(envlp)
-        self.log_debug('Sent alert from {msg[src]} to {msg[dest]}'.format(
-            msg=message))
+        user = self._data['users'][message['dest']]
+        body = '{msg[src]} said: {msg[msg]}'.format(msg=message)
+        if user['sms_contact']:
+            self._send_sms(user['sms_contact'], body)
+        if user['email_contact']:
+            self._send_email(user['email_contact'], body)
 
-    def _send_email(self, envelope):
-        conn = smtplib.SMTP(*self.mail_server)
-        conn.sendmail(envelope['From'], [envelope['To']], envelope.as_string())
-        conn.quit()
+    def _send_sms(self, dest, body):
+        try:
+            self.api.sms.messages.create(
+                from_=self.src_number, to=dest, body=body[:self.SMS_CHAR_LIMIT])
+        except Exception as err:
+            self.log_warning(err)
+        else:
+            self.log_debug('Sent SMS to: ' + dest)
+
+    def _send_email(self, dest, body):
+        envlp = MIMEText(body)
+        envlp['Subject'] = 'IRCAlert'
+        envlp['From'] = self.src_email
+        envlp['To'] = dest
+        try:
+            conn = smtplib.SMTP(*self.mail_server)
+            conn.sendmail(envlp['From'], [envlp['To'],], envlp.as_string())
+            conn.quit()
+        except Exception as err:
+            self.log_warning(err)
+        else:
+            self.log_debug('Sent email to: ' + dest)

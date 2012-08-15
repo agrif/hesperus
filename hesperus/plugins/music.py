@@ -25,7 +25,7 @@ class IcecastStatus(CommandPlugin):
         streams = []
         for div in page.findAll('div', attrs={'class': 'streamheader'}):
             table = div.nextSibling.nextSibling
-            streams.append(dict((tr.td.string, tr.td.nextSibling.nextSibling.string) \
+            streams.append(dict((tr.td.string[:-1], tr.td.nextSibling.nextSibling.string) \
                 for tr in table.findAll('tr')))
         return streams
 

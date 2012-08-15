@@ -26,7 +26,7 @@ class IcecastStatus(CommandPlugin):
         for div in page.findAll('div', attrs={'class': 'streamheader'}):
             table = div.nextSibling.nextSibling
             streams.append(dict((tr.td.string, tr.td.nextSibling.nextSibling.string) \
-                for tr in table.findAll('tr'))
+                for tr in table.findAll('tr')))
         return streams
 
     def _remove_unicode(self, ustr):

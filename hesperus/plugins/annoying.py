@@ -2,7 +2,7 @@ import random
 import time
 import re
 
-from ..plugin import Plugin, PassivePlugin
+from ..plugin import Plugin, PassivePlugin, CommandPlugin
 from ..core  import ET
 
 class Repeater(Plugin):
@@ -143,3 +143,20 @@ class ThatsWhatSheSaid(PassivePlugin):
             if roll < self._chance:
                 self.log_debug('Replying, %s < %s' % (roll, self._chance))
                 reply(self.PHRASE.format(pronoun=random.choice(['he', 'she'])))
+
+class RMSPlugin(CommandPlugin):
+    RMS_LECTURE = """
+I'd just like to interject for a moment. What you're refering to as {0}, is in fact, GNU/{0}, or as I've recently taken to calling it, GNU plus {0}.
+{1} is not an operating system unto itself, but rather another free component of a fully functioning GNU system made useful by the GNU corelibs, shell utilities and vital system components comprising a full OS as defined by POSIX.
+
+Many computer users run a modified version of the GNU system every day, without realizing it. Through a peculiar turn of events, the version of GNU which is widely used today is often called '{0}', and many of its users are not aware that it is basically the GNU system, developed by the GNU Project.
+
+There really is a {0}, and these people are using it, but it is just a part of the system they use. {1} is the kernel: the program in the system that allocates the machine's resources to the other programs that you run.
+The kernel is an essential part of an operating system, but useless by itself; it can only function in the context of a complete operating system.
+{1} is normally used in combination with the GNU operating system: the whole system is basically GNU with {0} added, or GNU/{0}. All the so-called '{0}' distributions are really distributions of GNU/{0}."""
+
+    @CommandPlugin.register_command(r'rmsify\s+(.+)')
+    def lecture_on_the_differences_between_gnu_and_linux(self, chans, name, match, direct, reply):
+        for p in self.RMS_LECTURE.split('\n'):
+            if p.strip():
+                reply(p.format(match.group(1), match.group(1).capitalize()))

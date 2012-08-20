@@ -18,7 +18,7 @@ class IcecastStatus(CommandPlugin):
             reply('{title} [{listeners}]: {song}'.format(
                 title=stream['Stream Title'],
                 listeners=stream['Current Listeners'],
-                song=self._remove_unicode(stream['Current Song'])))
+                song=self._remove_unicode(stream['Current Song']) if stream['Current Song'] else 'UNKNOWN'))
 
     def _get_status(self):
         page = BeautifulSoup(requests.get(self._url).content)

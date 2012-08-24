@@ -45,7 +45,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     reply('{carrier} doesn\'t have any info on that number'.format(
                         carrier=package.carrier))
                 except UnsupportedTrackingNumber:
-                    self.log_warning('bad tracking number: {}'.format(tn))
+                    self.log_warning('bad tracking number: {0}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
                     reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
@@ -55,7 +55,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         reply('Go check outside, that package has already been delivered...')
                     else:
                         data = {
-                            'tag': match.group(2) if match.group(2) else self._generate_tag(),
+                            'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
                             'owner': name,
                             'channels': chans,
                             'direct': direct,
@@ -167,7 +167,7 @@ class PackageStatus(CommandPlugin):
         try:
             info = package.track()
         except UnsupportedTrackingNumber:
-            self.log_warning('UnsupportedShipper: {}'.format(tn))
+            self.log_warning('UnsupportedShipper: {0}'.format(tn))
             reply('Dunno any carriers for a number like that')
         except TrackingFailure as err:
             reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(

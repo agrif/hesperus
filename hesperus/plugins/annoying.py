@@ -160,3 +160,26 @@ The kernel is an essential part of an operating system, but useless by itself; i
         for p in self.RMS_LECTURE.split('\n'):
             if p.strip():
                 reply(p.format(match.group(1), match.group(1).capitalize()))
+
+class EightBall(PassivePlugin, CommandPlugin):
+    @CommandPlugin.config_types(answers=ET.Element, chance=float)
+    def __init__(self, core, answers=None, chance=0.2, *args):
+        super(EightBall, self).__init__(core, *args)
+        self._chance = chance
+        self._messages = [el.text.strip() for el in (answers if answers is not None else []) \
+            if el.tag.lower() == 'answer']
+        if not self._messages:
+            self._messages = ["I cannot answer that"]
+    
+    @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)')
+    def eightball_command(self, chans, name, match, direct, reply):
+        self._give_answer(reply)
+        
+    @PassivePlugin.register_pattern(r'^.+\?+')
+    def find_question(self, match, reply):
+        if random.random() <= self._chance:
+            self._give_answer(reply)
+    
+    def _give_answer(self, reply_func):
+        reply_func(random.choice(self._messages))
+    

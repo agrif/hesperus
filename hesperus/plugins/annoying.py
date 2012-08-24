@@ -171,11 +171,11 @@ class EightBall(PassivePlugin, CommandPlugin):
         if not self._messages:
             self._messages = ["I cannot answer that"]
     
-    @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)')
+    @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)\b.*')
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
         
-    @PassivePlugin.register_pattern(r'^.+\?+')
+    @PassivePlugin.register_pattern(r'^(?i)(?:can|has|is|does)\b.+\?+')
     def find_question(self, match, reply):
         if random.random() <= self._chance:
             self._give_answer(reply)

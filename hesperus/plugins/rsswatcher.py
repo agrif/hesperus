@@ -1,4 +1,5 @@
 import time
+from HTMLParser import HTMLParser
 
 import feedparser
 
@@ -14,7 +15,7 @@ class Feed(object):
         # Go ahead and fetch the feed so we can see what entries are already there
         feedobj = self._fetch()
         self.seen_entries = set(
-                e.id for e in feedobj.entries
+                e.id if hasattr(e, 'id') else e.published for e in feedobj.entries
                 )
 
     def _fetch(self):
@@ -22,7 +23,10 @@ class Feed(object):
         return feedobj
 
     def _format_entry(self, feed, entry):
-        return self.formatstr.format(f=feed, e=entry) + short_url(entry['link'])
+        #decode htmlentities, then strip out utf-8 chars
+        entry['description'] = ''.join(c for c in HTMLParser().unescape(entry['description']) if ord(c) < 128)
+        entry['short_link'] = short_url(entry['link']) if 'link' in entry else short_url(self.url)
+        return self.formatstr.format(f=feed, e=entry)
 
     def get_new_events(self):
         """Returns an iterator over formatted strings for any new entries to
@@ -32,8 +36,9 @@ class Feed(object):
         feedobj = self._fetch()
 
         for entry in feedobj.entries:
-            if entry.id not in self.seen_entries:
-                self.seen_entries.add(entry.id)
+            key = entry.id if hasattr(entry, 'id') else entry.published
+            if key not in self.seen_entries:
+                self.seen_entries.add(key)
                 yield self._format_entry(feedobj.feed, entry)
 
     def __str__(self):

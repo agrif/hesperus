@@ -162,25 +162,30 @@ The kernel is an essential part of an operating system, but useless by itself; i
                 reply(p.format(match.group(1), match.group(1).capitalize()))
 
 class EightBall(PassivePlugin, CommandPlugin):
-    @CommandPlugin.config_types(answers=ET.Element, chance=float)
-    def __init__(self, core, answers=None, chance=0.2, *args):
+    @CommandPlugin.config_types(answers=ET.Element, whitelist=ET.Element, chance=float)
+    def __init__(self, core, answers=None, whitelist=None, chance=0.2, *args):
         super(EightBall, self).__init__(core, *args)
         self._chance = chance
         self._messages = [el.text.strip() for el in (answers if answers is not None else []) \
             if el.tag.lower() == 'answer']
         if not self._messages:
             self._messages = ["I cannot answer that"]
+        self._whitelist = [el.text.strip() for el in (whitelist if whitelist is not None else []) \
+            if el.tag.lower() == 'name']
     
     @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)\b.*')
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
         
     @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:can|has|is|isn\'t|does|are|do|don\'t)\b.+\?+')
-    def find_question(self, match, reply):
-        self.log_debug('Hit on: %s' % match.group(0))
-        if random.random() <= self._chance:
-            self.log_debug('Won the roll, replying')
-            self._give_answer(reply)
+    def find_question(self, chans, name, match, direct, reply):
+        if not self._whitelist or name in self._whitelist:
+            self.log_debug('Hit on: %s' % match.group(0))
+            if random.random() <= self._chance:
+                self.log_debug('Won the roll, replying')
+                self._give_answer(reply)
+        else:
+            self.log_debug('%s not in whitelist, ignoring' % name)
     
     def _give_answer(self, reply_func):
         reply_func(random.choice(self._messages))

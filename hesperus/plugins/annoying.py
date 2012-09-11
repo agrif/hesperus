@@ -177,11 +177,11 @@ class EightBall(PassivePlugin, CommandPlugin):
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
         
-    @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:can|has|is|isn\'t|does|are|do|don\'t)\b.+\?+')
+    @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:should|can|has|is|isn\'t|does|are|do|don\'t)\b.+\?+')
     def find_question(self, chans, name, match, direct, reply):
-        if not self._whitelist or name in self._whitelist:
+        if ((not self._whitelist or name in self._whitelist) and not direct) or direct:
             self.log_debug('Hit on: %s' % match.group(0))
-            if random.random() <= self._chance:
+            if (not direct and random.random() <= self._chance) or direct:
                 self.log_debug('Won the roll, replying')
                 self._give_answer(reply)
         else:

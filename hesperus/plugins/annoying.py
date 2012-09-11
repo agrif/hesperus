@@ -173,7 +173,7 @@ class EightBall(PassivePlugin, CommandPlugin):
         self._whitelist = [el.text.strip() for el in (whitelist if whitelist is not None else []) \
             if el.tag.lower() == 'name']
     
-    @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)\b.*')
+    @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)(?:$|\s+(.*))')
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
         
@@ -190,3 +190,8 @@ class EightBall(PassivePlugin, CommandPlugin):
     def _give_answer(self, reply_func):
         reply_func(random.choice(self._messages))
     
+class LessThanThree(CommandPlugin):
+    @CommandPlugin.register_command(r'<3')
+    def less_than_three(self, chans, name, match, direct, reply):
+        if direct:
+            reply('I less than three you too!')

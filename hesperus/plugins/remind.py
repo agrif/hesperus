@@ -15,14 +15,13 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
     @CommandPlugin.register_command(r"remind(?:\s+(?P<target>.*?))?(?:\s+@(?P<time_spec>\d+[hmd]?))?(?:\s+(?P<message>.*?))?(?:\s+in\s+(?P<nat_time_spec>\d+\s+(?:mins?(?:utes?)?|hours?|days?)))?")
     def remind_command(self, chans, name, match, direct, reply):
         parts = match.groupdict()
-        reply(repr(parts))
         if not parts['target'] or not parts['message']:
             reply(self._USAGE)
 
         if self._add_notice(source=name, **parts):
             reply('Reminder saved.')
         else:
-            reply('Reminder not saved, use a longer delay.')
+            reply('Reminder not saved, use a longer delay (min is %d seconds).' % self._min_delay)
 
     def _add_notice(self, source, target, message, time_spec=None, nat_time_spec=None):
         if target not in self._data:

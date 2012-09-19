@@ -12,9 +12,10 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         self._min_delay = min_delay
         self.load_data()
 
-    @CommandPlugin.register_command(r"remind(?:\s+(?P<target>.*?))?(?:\s+@(?P<time_spec>\d+[hmd]?))?(?:\s+(?P<message>.*?))?(?:\s+in\s+(?P<nat_time_spec>\d+\s+(?:mins?(?:utes?)?|hours?|days?)))?")
+    @CommandPlugin.register_command(r"remind(?:\s+(?P<target>[^ ]+))?(?:\s+@(?P<time_spec>\d+[hmd]?))?(?:\s+(?P<message>.*?))?(?:\s+in\s+(?P<nat_time_spec>\d+\s+(?:mins?(?:utes?)?|hours?|days?)))?")
     def remind_command(self, chans, name, match, direct, reply):
         parts = match.groupdict()
+        self.log_debug(match.group(0) + repr(match.groupdict()))
         if not parts['target'] or not parts['message']:
             reply(self._USAGE)
             return
@@ -24,6 +25,10 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         else:
             reply('Reminder not saved, use a longer delay (min is %d seconds).' % self._min_delay)
 
+    @CommandPlugin.register_command(r'reminders')
+    def reminders_command(self, chans, name, match, direct, reply):
+        reply(repr(self._data))
+    
     def _add_notice(self, source, target, message, time_spec=None, nat_time_spec=None):
         if target not in self._data:
             self._data[target] = []
@@ -68,12 +73,17 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
 
     @CommandPlugin.queued
     def remind_check(self, name, reply):
+        now = int(time.time())
         if name in self._data:
             to_del = []
             for i, notice in enumerate(self._data[name]):
-                if int(time.time()) > (notice['time'] + notice['delay']):
-                    reply('{target}, {source} reminds you `{message}\' ({ago} seconds ago)'.format(
-                        ago=(int(time.time())-notice['time']), **notice))
+                diff = now - notice['time']
+                if diff >= notice['delay']:
+                    h = diff / 3600
+                    m = (diff % 3600) / 60
+                    ago = '%02dh%02dm' % (h, m)
+                    reply('{target}, {source} reminds you "{message}" ({ago} ago)'.format(
+                        ago=ago, **notice))
                     to_del.append(i)
             if to_del:
                 for i in to_del:
@@ -85,7 +95,5 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
 
     def handle_incoming(self, chans, name, msg, direct, reply):
         super(RemindPlugin, self).handle_incoming(chans, name, msg, direct, reply)
-        if direct:
-            return
-
-        self.remind_check(name, reply)
+        if not direct:
+            self.remind_check(name, reply)

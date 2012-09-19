@@ -177,7 +177,7 @@ class EightBall(PassivePlugin, CommandPlugin):
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
         
-    @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:should|can|has|is|isn\'t|does|are|do|don\'t)\b.+\?+')
+    @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:should|can|has|is|isn\'t|does|are|do|don\'t)\b[^!?.]+\?+')
     def find_question(self, chans, name, match, direct, reply):
         if ((not self._whitelist or name in self._whitelist) and not direct) or direct:
             self.log_debug('Hit on: %s' % match.group(0))
@@ -195,3 +195,11 @@ class LessThanThree(CommandPlugin):
     def less_than_three(self, chans, name, match, direct, reply):
         if direct:
             reply('I less than three you too!')
+
+class Longer(PassivePlugin):
+    @PassivePlugin.register_pattern(r'([8B])(=+)([D>)])')
+    def longer(self, chans, name, match, direct, reply):
+        reply('{base}{stem}{flower}'.format(
+            base=match.group(1),
+            stem='='*(len(match.group(2))+random.choice(range(1,6))),
+            flower=match.group(3)))

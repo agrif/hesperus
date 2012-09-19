@@ -17,6 +17,7 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         parts = match.groupdict()
         if not parts['target'] or not parts['message']:
             reply(self._USAGE)
+            return
 
         if self._add_notice(source=name, **parts):
             reply('Reminder saved.')

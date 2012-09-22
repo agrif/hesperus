@@ -9,19 +9,21 @@ from ..core import ET, ConfigurationError
 from ..shorturl import short_url
 _short_url = lambda u: short_url(u, provider="git.io")
 
-# how each event is printed.  Not used for the new github monitorv3 plugin
+# how each event is printed.
 DEFAULT_FORMATS = {
-    'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
-    'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} {url}",
-    'IssueCommentEvent' : "{actor} commented on issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]}: \"{payload[body_short]}\" {url}",
-    'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} {url}",
-    'GollumEvent' : "{actor} {payload[pages][0][action]} \"{payload[pages][0][title]}\" in the {repository[owner]}/{repository[name]} wiki {url}",
-    'CreateEvent' : "{actor} created {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
-    'DeleteEvent' : "{actor} deleted {payload[ref_type]} {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
-    'PullRequestEvent' : "{actor} {payload[action]} pull request {payload[number]}: \"{payload[pull_request][title]}\" on {repository[owner]}/{repository[name]} {url}",
-    'WatchEvent' : "{actor} {payload[action]} watching {repository[owner]}/{repository[name]} {url}",
-    'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} {url}",
-    'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} {url}",
+    'IssueCommentEvent' : "{actor[login]} commented on issue #{payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]}: \"{payload[comment][body]}\" {payload[issue][html_url]}",
+    'IssuesEvent' : "{actor[login]} {payload[action]} issue #{payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]} {payload[issue][html_url]}",
+    'PullRequestEvent' : "{actor[login]} {payload[action]} pull request {payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]} {payload[issue][html_url]}",
+    'SinglePushEvent' : "{actor[login]} pushed 1 commit to {payload[ref]} at {repo[name]}: \"{payload[message]}\" {payload[url]}",
+    'PushEvent' : "{actor[login]} pushed {payload[size]} commits to {payload[ref]} at {repo[name]} {payload[url]}",
+    'CreateEvent' : "{actor[login]} created {payload[ref_type]} {payload[ref]} at {repo[name]}",
+    'DeleteEvent' : "{actor[login]} deleted {payload[ref_type]} {payload[ref]} at {repo[name]}",
+    
+    # 'CommitCommentEvent' : "{actor} commented on commit {payload[commit]} on {repository[owner]}/{repository[name]} {url}",
+    # 'GollumEvent' : "{actor} {payload[pages][0][action]} \"{payload[pages][0][title]}\" in the {repository[owner]}/{repository[name]} wiki {url}",
+    # 'WatchEvent' : "{actor} {payload[action]} watching {repository[owner]}/{repository[name]} {url}",
+    # 'DownloadEvent' : "{actor} uploaded \"{payload[filename]}\" to {repository[owner]}/{repository[name]} {url}",
+    # 'MemberEvent' : "{actor} {payload[action]} {payload[member]} to {repository[owner]}/{repository[name]} {url}",
 }
 
 # pretty string trunc function
@@ -390,120 +392,60 @@ class GitHubPlugin(PollPlugin, CommandPlugin):
         in a while to let the queue process
 
         """
-        event_types = {
-                'PushEvent':          self._handle_push_event,
-                'IssueCommentEvent':  self._handle_issue_comment_event,
-                'IssuesEvent':        self._handle_issues_event,
-                'PullRequestEvent':   self._handle_pr_event,
-                'CreateEvent':        self._handle_create_event,
-                'DeleteEvent':        self._handle_delete_event,
-                }
 
         for feed in self.feeds.itervalues():
             for event in feed.get_new_events():
+                if not self._preprocess_event(event):
+                    continue
                 # Call to the appropriate event handler
-                if event['type'] in event_types:
-                    reply = event_types[event['type']](event)
-                    if reply:
-                        for chan in feed.channels:
-                            self.parent.send_outgoing(chan, reply)
+                if event['type'] in DEFAULT_FORMATS:
+                    reply = DEFAULT_FORMATS[event['type']].format(**event)
+                    for chan in feed.channels:
+                        self.parent.send_outgoing(chan, reply)
             yield
-
-    def _handle_issue_comment_event(self, event):
+    
+    def _preprocess_event(self, event):
         payload = event['payload']
-        issue   = payload['issue']
-
-        if payload['action'] != 'created':
-            return # TODO log this?
-
-        body_short = _trunc(payload['comment']['body'])
-        # *regular*, not git, short url: github doesn't handle anchors
-        url = short_url(payload['issue']['html_url'] + "#issuecomment-" + str(payload['comment']['id']))
         
-        replystr = "{actor[login]} commented on issue #{issue[number]}: \"{issue[title]}\" on {repo[name]}: \"{body_short}\" {url}".format(
-                actor=event['actor'], issue=issue, repo=event['repo'], body_short=body_short, url=url)
-
-        return replystr
-
-
-    def _handle_issues_event(self, event):
-        payload = event['payload']
-        actor   = event['actor']
-
-        url = _short_url(payload['issue']['html_url'])
-        replystr = "{actor[login]} {action} issue #{issue[number]}: \"{issue[title]}\" {url}".format(
-                actor=actor, issue=payload['issue'], url=url, action=payload['action']
-                )
-
-        return replystr
-
-    def _handle_pr_event(self, event):
-        payload = event['payload']
-        actor   = event['actor']
-
-        url = _short_url(payload['issue']['html_url'])
-        replystr = "{actor[login]} {action} Pull Request #{issue[number]}: \"{issue[title]}\" {url}".format(
-                actor=actor, issue=payload['issue'], url=url, action=payload['action']
-                )
-
-        return replystr
-
-    def _handle_push_event(self, event):
+        if 'comment' in payload:
+            if payload['action'] != 'created':
+                return False
+            payload['comment']['body'] = _trunc(payload['comment']['body'])
+            if 'issue' in payload:
+                payload['issue']['html_url'] = short_url(payload['issue']['html_url'] + '#issuecomment-' + str(payload['comment']['id']))
+        
+        if 'issue' in payload and 'html_url' in payload['issue']:
+            if not 'comment' in payload:
+                payload['issue']['html_url'] = _short_url(payload['issue']['html_url'])
+        
+        if 'ref' in payload:
+            payload['ref'] = _nice_ref(payload['ref'])
+        
+        # special handling for push events
+        if event['type'] == 'PushEvent':
+            return self._preprocess_push_event(event)
+        return True
+    
+    def _preprocess_push_event(self, event):
         payload = event['payload']
         # Ignore size zero pushes (which can happen e.g. doing a re-wind push
         # that doesn't push any new commits but sets the branch to a different
         # already-existing commit
         numcommits = payload['size']
         if numcommits < 1:
-            return
+            return False
 
         if numcommits == 1:
             # Handle this specially. Print out a bit from the commit message.
             commit = payload['commits'][0]
-            commitmsg = commit['message'].split("\n")[0]
-            branch = event['repo']['name']
-            pusher = event['actor']['login']
-            if len(commitmsg) >= 80:
-                commitmsg = commitmsg[:76] + "..."
-            url = "https://github.com/%s/commit/%s" % (event['repo']['name'], commit['sha'])
-            replystr = "%s pushed to %s: \"%s\" %s" % (pusher, branch, commitmsg, _short_url(url))
-        else:
-            # Pushed a number of commits at once.
-            branch = event['repo']['name']
-            pusher = event['actor']['login']
-            
-            # We need to find the first commit in the series, so we can find
-            # its parent, since for the compare we want the range from the
-            # first commit's parent to the last commit.
-            try:
-                firstcommit = self.gh3.query(payload['commits'][0]['url'])
-            except NoData:
-                return "Github seems to be having problems. I *think* something was just pushed, but I couldn't get any more info"
-
-            url = "https://github.com/%s/compare/%s...%s" % (event['repo']['name'],
-                    firstcommit['parents'][0]['sha'],
-                    payload['commits'][-1]['sha'],
-                    )
-            replystr = "%s pushed %s commits to %s %s" % (pusher, numcommits, branch, _short_url(url))
-
-        return replystr
-    
-    def _handle_create_event(self, event):
-        payload = event['payload']
-        actor   = event['actor']
-        if payload['ref_type'] == 'branch':
-            return "{actor[login]} created branch {payload[ref]} on {repo[name]}".format(
-                actor=actor, payload=payload, repo=event['repo']
-                    )
-
-    def _handle_delete_event(self, event):
-        payload = event['payload']
-        actor   = event['actor']
-        if payload['ref_type'] == 'branch':
-            return "{actor[login]} deleted branch {payload[ref]} on {repo[name]}".format(
-                actor=actor, payload=payload, repo=event['repo']
-                    )
-
+            commitmsg = _trunc(commit['message'].split("\n")[0])
+            payload['message'] = commitmsg
+            event['type'] = 'SinglePushEvent'
+        
+        url = "https://github.com/{repo}/compare/{before}...{head}".format(repo=event['repo']['name'], before=payload['before'], head=payload['head'])
+        payload['url'] = _short_url(url)
+        
+        return True
 
 # backwards compatibility
 GitHubEventMonitorV3 = GitHubPlugin

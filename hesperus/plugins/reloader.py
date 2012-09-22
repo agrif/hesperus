@@ -38,6 +38,15 @@ class Reloader(CommandPlugin):
     def reload(self, chans, name, match, direct, reply):
         self.log_message("Reloading plugins...")
 
+        # Do an early check to see if the config is malformed
+        try:
+            config = ET.parse(self.parent.configfile).getroot()
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            reply("Error reading config file. No plugins (re)loaded")
+            return
+
         # Get the set of current plugin names
         loadedplugins = set(x.__class__.__name__ for x in list(self.parent.plugins))
 
@@ -85,7 +94,6 @@ class Reloader(CommandPlugin):
 
         #############
         # (Re-)load procedure
-        config = ET.parse(self.parent.configfile).getroot()
         errorlist = []
         ircplugin = None
         foundreload = False

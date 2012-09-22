@@ -1,14 +1,8 @@
-import time
 import urllib2
 from urllib import urlencode
 import json
 import re
-from datetime import datetime
 from time import time, sleep
-from copy import copy
-from posixpath import split as posix_split
-
-from github.github import GitHub
 
 from ..plugin import PollPlugin, CommandPlugin
 from ..core import ET, ConfigurationError
@@ -68,25 +62,13 @@ def _nice_ref(ref):
         return ref.split('/', 2)[2]
     return ref
 
-# automatically spaces out github requests!
-class AutoDelayGitHub:
-    def __init__(self, delay=1.0):
-        self.gh = GitHub()
-        self.lasttime = 0
-        self.delay = delay
-
-    def __getattr__(self, name):
-        while time() < self.lasttime + self.delay:
-            sleep(self.lasttime + self.delay - time())
-        self.lasttime = time()
-        return getattr(self.gh, name)
-
 class NoData(Exception):
     """Indicates no data was returned due to some kind of error while querying
     Github in the MiniGithubAPI class
 
     """
     pass
+
 class MiniGithubAPI(object):
     """For version 3 of the API, since the py-github libraries use the older
     version and try to parse github's xml that is occasionally malformed.
@@ -147,21 +129,85 @@ class MiniGithubAPI(object):
         if raw:
             return request.read()
         return json.load(request)
+    
+class Feed(object):
+    def __init__(self, url, channels, gh3):
+        self.url = url
+        self.channels = channels
+        self.gh3 = gh3
 
-class GitHubPlugin(CommandPlugin, PollPlugin):
-    poll_interval = 50
-    # Run command callbacks (register_command decorated methods) in the main
-    # thread, not in the plugin's thread
+        # Go ahead and do the initial fetch to see the most recent entry
+        # Store lastupdate as a string, lexographic ordering should work just
+        # fine. No need to parse the date.
+        events = self._fetch()
+        if events:
+            self.lastupdate = events[0]['created_at']
+        else:
+            self.lastupdate = None
+
+    def _fetch(self):
+        try:
+            return self.gh3.query(self.url)
+        except NoData:
+            return []
+
+    def get_new_events(self):
+        allevents = self._fetch()
+        if not allevents:
+            # Nothing returned, maybe a connectivity error?
+            return []
+
+        if not self.lastupdate:
+            # Still hasn't done the inital update (due to connectivity failures
+            # perhaps).
+            self.lastupdate = allevents[0]['created_at']
+            return []
+
+        newevents = []
+
+        for event in allevents:
+            if event['created_at'] > self.lastupdate:
+                newevents.append(event)
+
+        self.lastupdate = allevents[0]['created_at']
+
+        newevents.reverse()
+        return newevents
+
+    # So these items can be added to sets properly
+    def __hash__(self):
+        return hash(self.url)
+    def __eq__(self, other):
+        return self.url == other.url
+
+    def __str__(self):
+        return "<Feed for %s in channels %r>" % (self.url, self.channels)
+
+
+class GitHubPlugin(PollPlugin, CommandPlugin):
+    """Monitors one or more GitHub event feeds from version 3 of their api
+    described here:
+
+        http://developer.github.com/v3/events/
+    
+    Also does issue searches and file:line lookups.
+
+    """
+
+    poll_interval = 60
     commands_queued = False
     
     @PollPlugin.config_types(feedmap=ET.Element, default_user=str, default_repo=str)
     def __init__(self, core, feedmap=None, default_user="agrif", default_repo="hesperus"):
-        super(GitHubPlugin, self).__init__(core)
+        super(GitHubEventMonitorV3, self).__init__(core)
+
+        self.gh3 = MiniGithubAPI()
         
         self.default_user = default_user
         self.default_repo = default_repo
-        self.feedmap = {}
-        self.events_cached = {}
+        
+        # Maps feed urls to Feed objects
+        self.feeds = {}
 
         if feedmap == None:
             feedmap = []
@@ -173,137 +219,18 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             if not channel or not feed_url:
                 raise ConfigurationError('invalid feed tag')
             
-            if not feed_url in self.feedmap:
-                self.feedmap[feed_url] = [channel]
-                self.events_cached[feed_url] = []
+            if not feed_url in self.feeds:
+                self.feeds[feed_url] = Feed(feed_url, [channel], gh3=self.gh3)
             else:
-                self.feedmap[feed_url].append(channel)
-        
-        self.gh = AutoDelayGitHub()
-        self.gh3 = MiniGithubAPI()
+                self.feeds[feed_url].channels.append(channel)
 
-        self.firstrun = True
-        
-    def get_events(self, url):
-        #self.log_debug("fetching", url)
-        r = urllib2.Request(url)
-        retdata = urllib2.urlopen(r).read()
-            
-        retdata = json.loads(retdata)
-        # ex. "2011/03/22 00:49:44 -0700"
-	# new format: 2012-06-03T19:56:25-07:00
-        timefmt = "%Y-%m-%dT%H:%M:%S" # timezone is ignored, split off
-        for event in retdata:
-            event['created_at'] = event['created_at'].rsplit('-',1)[0]
-            try:
-                event['created_at'] = datetime.strptime(event['created_at'], timefmt)
-            except ValueError as e:
-                self.log_error(event)
-                self.log_error(e)
-                raise e
-        return retdata
-        
-    def postprocess_event(self, e):
-        event = copy(e)
-        if 'payload' in event:
-            payload = event['payload']
-            if 'ref' in payload:
-                payload['ref'] = _nice_ref(payload['ref'])
-            if 'size' in payload:
-                payload['plural'] = ''
-                if payload['size'] != 1:
-                    payload['plural'] = 's'
-                if 'commit' in payload:
-                    payload['commit'] = payload['commit'][:6]
-        if event['type'] == 'IssuesEvent':
-            payload = event['payload']
-            issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
-            payload['issue'] = issue.__dict__
-        if event['type'] == 'IssueCommentEvent':
-            payload = event['payload']
-            try:
-                payload['number'] = int(event['url'].split('/issues/', 1)[1].split("#", 1)[0])
-                
-                issue = self.gh.issues.show(event['repository']['owner'], event['repository']['name'], payload['number'])
-                payload['issue'] = issue.__dict__
-                
-                comments = self.gh.issues.comments(event['repository']['owner'], event['repository']['name'], payload['number'])
-                comments = filter(lambda c: c.id == payload['comment_id'], comments)
-                if comments:
-                    body = comments[0].body
-                    payload['body'] = body
-                    body_short = re.sub(r'\s+', ' ', body)
-                    body_short = _trunc(body_short)
-                    payload['body_short'] = body_short
-                else:
-                    payload['body'] = ''
-                    payload['body_short'] = ''
-                
-            except (TypeError, ValueError):
-                pass
-        if event['type'] == 'DownloadEvent':
-            payload = event['payload']
-            payload['filename'] = posix_split(payload['url'])[1]
-            event['url'] = payload['url']
-        if 'url' in event:
-            event['url'] = _short_url(event['url'])
-        return event
-    
-    def poll(self):
-        if self.firstrun:
-            # fetch the initial cache of events
-            for url in self.feedmap:
-                self.events_cached[url] = self.get_events(url)
-            self.firstrun = False
-
-        for feed in self.feedmap:
-            try:
-                events_new = self.get_events(feed)
-                yield
-            except (urllib2.HTTPError, urllib2.URLError):
-                # try again later
-                self.log_warning("fetch failed:", feed)
-                yield
-                continue
-            
-            channels = self.feedmap[feed]
-            old = self.events_cached[feed]
-            if len(old) > 0:
-                last_update = old[0]['created_at']
-                yield
-                new = filter(lambda x: x['created_at'] > last_update, events_new)
-            else:
-                new = events_new
-            yield
-            
-            for e in new:
-                event = self.postprocess_event(e)
-                yield
-                
-                if not event['type'] in DEFAULT_FORMATS:
-                    self.log_warning("unhandled event", event['type'])
-                else:
-                    msg = DEFAULT_FORMATS[event['type']]
-                    try:
-                        msg = msg.format(**event)
-                        self.log_message(msg)
-                        for chan in self.feedmap[feed]:
-                            self.parent.send_outgoing(chan, msg)
-                    except Exception, ex:
-                        self.log_warning("error while formatting event", repr(event))
-                
-                yield
-            
-            self.events_cached[feed] = events_new
-    
     @CommandPlugin.register_command(r"(issue|pull|patch|diff)s?(?:\s+help)?")
     def issue_help_command(self, chans, name, match, direct, reply):
         cmd = match.group(1)
         reply("Usage: %s <number or search string> [in name/repo]" % (cmd,))
-        
+
     @CommandPlugin.register_command(r"(issue|pull|patch|diff)s?\s+(?:(?:#?([0-9]+))|(.+?))(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+))?")
     def issue_command(self, chans, name, match, direct, reply):
-        #reply("match: %s" % (repr(match.groups()),))
         cmd = match.group(1)
         user = match.group(4)
         if user is None:
@@ -314,30 +241,37 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         try:
             if match.group(2) is None:
                 search = match.group(3)
-                issues = self.gh.issues.search(user, repo, "open", search)
+                url = '/legacy/issues/search/{user}/{repo}/open/{search}'.format(user=user, repo=repo, search=search)
+                issues = self.gh3.query(url)['issues']
+                issues.reverse()
+                issues = issues[:3]
+                new_issues = []
+                for i in issues:
+                    url = '/repos/{user}/{repo}/issues/{number}'.format(user=user, repo=repo, number=i['number'])
+                    new_issues.append(self.gh3.query(url))
+                issues = new_issues
             else:
                 issue_id = int(match.group(2))
-                issues = [self.gh.issues.show(user, repo, issue_id)]
-        except urllib2.HTTPError:
+                url = '/repos/{user}/{repo}/issues/{number}'.format(user=user, repo=repo, number=issue_id)
+                issues = [self.gh3.query(url)]
+        except NoData:
             issues = []
         
-        issues.reverse()
-        issues = issues[:3]
         for i in issues:
             if cmd in ('pull', 'patch', 'diff'):
-                if not 'pull_request_url' in i.__dict__:
+                if not 'pull_request' in i:
                     continue
-                i.html_url = i.pull_request_url
+                i['html_url'] = i['pull_request']['html_url']
             if cmd == 'patch':
-                i.html_url += '.patch'
+                i['html_url'] = i['pull_request']['patch_url']
             elif cmd == 'diff':
-                i.html_url += '.diff'
+                i['html_url'] = i['pull_request']['diff_url']
             
-            i.html_url = _short_url(i.html_url)
-            reply(cmd.capitalize() + " #{number}: \"{title}\" ({state}) {html_url}".format(**i.__dict__))
+            i['html_url'] = _short_url(i['html_url'])
+            reply(cmd.capitalize() + " #{number}: \"{title}\" ({state}) {html_url}".format(**i))
         if len(issues) == 0:
             reply("no issues found :(")
-    
+
     @CommandPlugin.register_command(r"([^:]+):([0-9]+)(?:\s+(?:in|for|of|on)\s+([a-zA-Z0-9._-]+)(?:/([a-zA-Z0-9._-]+))?)?")
     def file_line_command(self, chans, name, match, direct, reply):
         fname = match.group(1)
@@ -451,95 +385,6 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
         reply(short_url(url_format.format(
                     user=user, repo=repo, branch=branch, fname=fname, lineno=lineno)))
 
-
-class Feed(object):
-    def __init__(self, url, channels, gh3):
-        self.url = url
-        self.channels = channels
-        self.gh3 = gh3
-
-        # Go ahead and do the initial fetch to see the most recent entry
-        # Store lastupdate as a string, lexographic ordering should work just
-        # fine. No need to parse the date.
-        events = self._fetch()
-        if events:
-            self.lastupdate = events[0]['created_at']
-        else:
-            self.lastupdate = None
-
-    def _fetch(self):
-        try:
-            return self.gh3.query(self.url)
-        except NoData:
-            return []
-
-    def get_new_events(self):
-        allevents = self._fetch()
-        if not allevents:
-            # Nothing returned, maybe a connectivity error?
-            return []
-
-        if not self.lastupdate:
-            # Still hasn't done the inital update (due to connectivity failures
-            # perhaps).
-            self.lastupdate = allevents[0]['created_at']
-            return []
-
-        newevents = []
-
-        for event in allevents:
-            if event['created_at'] > self.lastupdate:
-                newevents.append(event)
-
-        self.lastupdate = allevents[0]['created_at']
-
-        newevents.reverse()
-        return newevents
-
-    # So these items can be added to sets properly
-    def __hash__(self):
-        return hash(self.url)
-    def __eq__(self, other):
-        return self.url == other.url
-
-    def __str__(self):
-        return "<Feed for %s in channels %r>" % (self.url, self.channels)
-
-
-class GitHubEventMonitorV3(PollPlugin):
-    """Monitors one or more GitHub event feeds from version 3 of their api
-    described here:
-
-        http://developer.github.com/v3/events/
-
-    """
-
-    poll_interval = 60
-    
-    @PollPlugin.config_types(feedmap=ET.Element)
-    def __init__(self, core, feedmap=None):
-        super(GitHubEventMonitorV3, self).__init__(core)
-
-        self.gh3 = MiniGithubAPI()
-        
-        # Maps feed urls to Feed objects
-        self.feeds = {}
-
-        if feedmap == None:
-            feedmap = []
-        for el in feedmap:
-            if not el.tag.lower() == 'feed':
-                raise ConfigurationError('feedmap must contain feed tags')
-            channel = el.get('channel', None)
-            feed_url = el.text
-            if not channel or not feed_url:
-                raise ConfigurationError('invalid feed tag')
-            
-            if not feed_url in self.feeds:
-                self.feeds[feed_url] = Feed(feed_url, [channel], gh3=self.gh3)
-            else:
-                self.feeds[feed_url].channels.append(channel)
-
     def poll(self):
         """Called every poll_interval seconds. Also we should yield every once
         in a while to let the queue process
@@ -572,7 +417,8 @@ class GitHubEventMonitorV3(PollPlugin):
             return # TODO log this?
 
         body_short = _trunc(payload['comment']['body'])
-        url = _short_url(payload['issue']['html_url'] + "#issuecomment-" + str(payload['comment']['id']))
+        # *regular*, not git, short url: github doesn't handle anchors
+        url = short_url(payload['issue']['html_url'] + "#issuecomment-" + str(payload['comment']['id']))
         
         replystr = "{actor[login]} commented on issue #{issue[number]}: \"{issue[title]}\" on {repo[name]}: \"{body_short}\" {url}".format(
                 actor=event['actor'], issue=issue, repo=event['repo'], body_short=body_short, url=url)
@@ -658,3 +504,6 @@ class GitHubEventMonitorV3(PollPlugin):
                 actor=actor, payload=payload, repo=event['repo']
                     )
 
+
+# backwards compatibility
+GitHubEventMonitorV3 = GitHubPlugin

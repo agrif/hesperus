@@ -15,7 +15,7 @@ from ..core import ET, ConfigurationError
 from ..shorturl import short_url
 _short_url = lambda u: short_url(u, provider="git.io")
 
-# how each event is printed
+# how each event is printed.  Not used for the new github monitorv3 plugin
 DEFAULT_FORMATS = {
     'PushEvent' : "{actor} pushed {payload[size]} commit{payload[plural]} to {payload[ref]} at {repository[owner]}/{repository[name]} {url}",
     'IssuesEvent' : "{actor} {payload[action]} issue #{payload[number]}: \"{payload[issue][title]}\" on {repository[owner]}/{repository[name]} {url}",
@@ -179,10 +179,16 @@ class GitHubPlugin(CommandPlugin, PollPlugin):
             
         retdata = json.loads(retdata)
         # ex. "2011/03/22 00:49:44 -0700"
-        timefmt = "%Y/%m/%d %H:%M:%S" # timezone is ignored, split off
+	# new format: 2012-06-03T19:56:25-07:00
+        timefmt = "%Y-%m-%dT%H:%M:%S" # timezone is ignored, split off
         for event in retdata:
-            event['created_at'] = event['created_at'].rsplit(' ', 1)[0]
-            event['created_at'] = datetime.strptime(event['created_at'], timefmt)
+            event['created_at'] = event['created_at'].rsplit('-',1)[0]
+            try:
+                event['created_at'] = datetime.strptime(event['created_at'], timefmt)
+            except ValueError as e:
+                self.log_error(event)
+                self.log_error(e)
+                raise e
         return retdata
         
     def postprocess_event(self, e):
@@ -516,7 +522,12 @@ class GitHubEventMonitorV3(PollPlugin):
 
         """
         event_types = {
-                'PushEvent': self._handle_push_event,
+                'PushEvent':          self._handle_push_event,
+                'IssueCommentEvent':  self._handle_issue_comment_event,
+                'IssuesEvent':        self._handle_issues_event,
+                'PullRequestEvent':   self._handle_pr_event,
+                'CreateEvent':        self._handle_create_event,
+                'DeleteEvent':        self._handle_delete_event,
                 }
 
         for feed in self.feeds.itervalues():
@@ -528,6 +539,44 @@ class GitHubEventMonitorV3(PollPlugin):
                         for chan in feed.channels:
                             self.parent.send_outgoing(chan, reply)
             yield
+
+    def _handle_issue_comment_event(self, event):
+        payload = event['payload']
+        issue   = payload['issue']
+
+        if payload['action'] != 'created':
+            return # TODO log this?
+
+        body_short = _trunc(payload['comment']['body'])
+        url = _short_url(payload['issue']['html_url'] + "#issuecomment-" + str(payload['comment']['id']))
+        
+        replystr = "{actor[login]} commented on issue #{issue[number]}: \"{issue[title]}\" on {repo[name]}: \"{body_short}\" {url}".format(
+                actor=event['actor'], issue=issue, repo=event['repo'], body_short=body_short, url=url)
+
+        return replystr
+
+
+    def _handle_issues_event(self, event):
+        payload = event['payload']
+        actor   = event['actor']
+
+        url = _short_url(payload['issue']['html_url'])
+        replystr = "{actor[login]} {action} issue #{issue[number]}: \"{issue[title]}\" {url}".format(
+                actor=actor, issue=payload['issue'], url=url, action=payload['action']
+                )
+
+        return replystr
+
+    def _handle_pr_event(self, event):
+        payload = event['payload']
+        actor   = event['actor']
+
+        url = _short_url(payload['issue']['html_url'])
+        replystr = "{actor[login]} {action} Pull Request #{issue[number]}: \"{issue[title]}\" {url}".format(
+                actor=actor, issue=payload['issue'], url=url, action=payload['action']
+                )
+
+        return replystr
 
     def _handle_push_event(self, event):
         payload = event['payload']
@@ -565,3 +614,20 @@ class GitHubEventMonitorV3(PollPlugin):
             replystr = "%s pushed %s commits to %s %s" % (pusher, numcommits, branch, _short_url(url))
 
         return replystr
+    
+    def _handle_create_event(self, event):
+        payload = event['payload']
+        actor   = event['actor']
+        if payload['ref_type'] == 'branch':
+            return "{actor[login]} created branch {payload[ref]} on {repo[name]}".format(
+                actor=actor, payload=payload, repo=event['repo']
+                    )
+
+    def _handle_delete_event(self, event):
+        payload = event['payload']
+        actor   = event['actor']
+        if payload['ref_type'] == 'branch':
+            return "{actor[login]} deleted branch {payload[ref]} on {repo[name]}".format(
+                actor=actor, payload=payload, repo=event['repo']
+                    )
+

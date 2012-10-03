@@ -13,7 +13,7 @@ _short_url = lambda u: short_url(u, provider="git.io")
 DEFAULT_FORMATS = {
     'IssueCommentEvent' : "{actor[login]} commented on issue #{payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]}: \"{payload[comment][body]}\" {payload[issue][html_url]}",
     'IssuesEvent' : "{actor[login]} {payload[action]} issue #{payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]} {payload[issue][html_url]}",
-    'PullRequestEvent' : "{actor[login]} {payload[action]} pull request {payload[issue][number]}: \"{payload[issue][title]}\" on {repo[name]} {payload[issue][html_url]}",
+    'PullRequestEvent' : "{actor[login]} {payload[action]} pull request {payload[pull_request][number]}: \"{payload[pull_request][title]}\" on {repo[name]} {payload[pull_request][html_url]}",
     'SinglePushEvent' : "{actor[login]} pushed 1 commit to {payload[ref]} at {repo[name]}: \"{payload[message]}\" {payload[url]}",
     'PushEvent' : "{actor[login]} pushed {payload[size]} commits to {payload[ref]} at {repo[name]} {payload[url]}",
     'CreateEvent' : "{actor[login]} created {payload[ref_type]} {payload[ref]} at {repo[name]}",

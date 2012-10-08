@@ -16,6 +16,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self._persist_file = persist_file
         self._data = {}
         self._unready_data = {}
+        self._retry_period = 86400
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
         try:
@@ -54,7 +55,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         'owner': name,
                         'channels': chans,
                         'direct': direct,
-                        'last_update': int(time.mktime(state.last_update.timetuple()))
+                        'last_update': int(time.time())
                     }
                     self._unready_data[tn] = data
                     reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
@@ -99,8 +100,8 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     '{p.carrier} has data on "{d[tag]}" now'.format(
                         p=package, d=data))
             yield
-        for tn in delivered:
-            data = self._unready_data[tn]:
+        for tn in expired:
+            data = self._unready_data[tn]
             del self._unready_data[tn]
             self._raw_message(data['channels'],
                 'I never got info on "{d[tag]}" and it has expired now'.format(

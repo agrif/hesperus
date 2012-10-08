@@ -15,6 +15,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
         super(PackageTracker, self).__init__(core)
         self._persist_file = persist_file
         self._data = {}
+        self._unready_data = {}
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
         try:
@@ -25,7 +26,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
         except IOError as err:
             self._word_database = None
             self.log_debug('Word database not loaded: %s' % err)
-    
+
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
     def track_command(self, chans, name, match, direct, reply):
         if match.group(1):
@@ -48,8 +49,18 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     self.log_warning('bad tracking number: {0}'.format(tn))
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
+                    data = {
+                        'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
+                        'owner': name,
+                        'channels': chans,
+                        'direct': direct,
+                        'last_update': int(time.mktime(state.last_update.timetuple()))
+                    }
+                    self._unready_data[tn] = data
                     reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
                         p=package, msg=err, url=short_url(package.url)))
+                    reply('I\'ll keep checking on it for 24 hours and let you know ' \
+                        'if it starts working')
                 else:
                     if state.is_delivered:
                         reply('Go check outside, that package has already been delivered...')
@@ -74,6 +85,27 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 reply('I\'m not watching any packages for you right now')
 
     def poll(self):
+        expired = []
+        for (tn, data) in self._unready_data.items():
+            package = self.get_package(tn)
+            try:
+                new_state = package.track()
+            except TrackingFailure as e:
+                if int(time.time()) - data['last_update'] > self._retry_period:
+                    expired.append(tn)
+            else:
+                self._data[tn] = data
+                self._raw_message(data['channels'],
+                    '{p.carrier} has data on "{d[tag]}" now'.format(
+                        p=package, d=data))
+            yield
+        for tn in delivered:
+            data = self._unready_data[tn]:
+            del self._unready_data[tn]
+            self._raw_message(data['channels'],
+                'I never got info on "{d[tag]}" and it has expired now'.format(
+                    d=data))
+
         delivered = []
         for (tn, data) in self._data.items():
             package = self.get_package(tn)
@@ -124,7 +156,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     plgn.bot.connection.privmsg(data['owner'], msg)
                     break
         else:
-            self.parent.send_outgoing('default', msg)
+            self._raw_message(data['channels'], msg)
+
+    def _raw_message(self, chans, msg):
+        for chan in chans:
+            self.parent.send_outgoing(chan, msg)
 
     @property
     def poll_interval(self):
@@ -144,7 +180,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
 
     def get_package(self, tn):
         return packagetrack.Package(tn)
-    
+
     def _generate_tag(self, tn):
         if self._word_database is not None:
             return ' '.join(random.choice(self._word_database).capitalize() for i in range(3))

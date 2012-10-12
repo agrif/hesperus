@@ -24,9 +24,15 @@ class Feed(object):
 
     def _format_entry(self, feed, entry):
         #decode htmlentities, then strip out utf-8 chars
-        entry['description'] = ''.join(c for c in HTMLParser().unescape(entry['description']) if ord(c) < 128)
         entry['short_link'] = short_url(entry['link']) if 'link' in entry else short_url(self.url)
+        parser = HTMLParser()
+        dict(
+            (key, value if value.startswith('http') else self._strip_unicode(parser.unscape(value))) \
+            for key, value in entry.iteritems())
         return self.formatstr.format(f=feed, e=entry)
+        
+    def _strip_unicode(self, txt):
+        return ''.join(c for c in txt if ord(c) < 128)
 
     def get_new_events(self):
         """Returns an iterator over formatted strings for any new entries to

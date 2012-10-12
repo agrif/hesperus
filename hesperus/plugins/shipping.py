@@ -10,13 +10,13 @@ from ..shorturl import short_url
 from .irc import IRCPlugin
 
 class PackageTracker(CommandPlugin, PollPlugin):
-    @CommandPlugin.config_types(persist_file=str, auth_file=str)
-    def __init__(self, core, persist_file='shipping-following.json', auth_file=None):
+    @CommandPlugin.config_types(persist_file=str, auth_file=str, retry_period=int)
+    def __init__(self, core, persist_file='shipping-following.json', auth_file=None, retry_period=24):
         super(PackageTracker, self).__init__(core)
         self._persist_file = persist_file
         self._data = {}
         self._unready_data = {}
-        self._retry_period = 86400
+        self._retry_period = retry_period
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
         try:
@@ -58,10 +58,10 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         'last_update': int(time.time())
                     }
                     self._unready_data[tn] = data
-                    reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
-                        p=package, msg=err, url=short_url(package.url)))
-                    reply('I\'ll keep checking on it for 24 hours and let you know ' \
-                        'if it starts working')
+                    self.log_debug('Unready package: %s' % err)
+                    reply('{p.carrier} doesn\'t know about "{d[tag]}" yet but I\'ll keep an eye on it ' \
+                        'for {0} hours and let you know if they find it'.format(
+                            self._retry_period, p=package, d=data))
                 else:
                     if state.is_delivered:
                         reply('Go check outside, that package has already been delivered...')
@@ -86,26 +86,30 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 reply('I\'m not watching any packages for you right now')
 
     def poll(self):
-        expired = []
+        expired = {}
+        found = {}
         for (tn, data) in self._unready_data.items():
             package = self.get_package(tn)
             try:
                 new_state = package.track()
             except TrackingFailure as e:
-                if int(time.time()) - data['last_update'] > self._retry_period:
-                    expired.append(tn)
+                if int(time.time()) - data['last_update'] > self._retry_period * 3600:
+                    expired[tn] = data
             else:
-                self._data[tn] = data
-                self._raw_message(data['channels'],
-                    '{p.carrier} has data on "{d[tag]}" now'.format(
-                        p=package, d=data))
+                found[tn] = data
             yield
-        for tn in expired:
-            data = self._unready_data[tn]
+        for (tn, data) in found.items():
+            package = self.get_package(tn)
+            self._raw_message(None,
+                '{d[owner]}: {p.carrier} seems to have found your "{d[tag]}", I\'ll watch it for updates now'.format(
+                    d=data, p=package))
             del self._unready_data[tn]
-            self._raw_message(data['channels'],
-                'I never got info on "{d[tag]}" and it has expired now'.format(
-                    d=data))
+        for (tn, data) in expired.items():
+            package = self.get_package(tn)
+            self._raw_message(None,
+                '{d[owner]}: {p.carrier} hasn\'t found your "{d[tag]}" yet so I\'m dropping it'.format(
+                    d=data, p=package))
+            del self._unready_data[tn]
 
         delivered = []
         for (tn, data) in self._data.items():
@@ -160,8 +164,9 @@ class PackageTracker(CommandPlugin, PollPlugin):
             self._raw_message(data['channels'], msg)
 
     def _raw_message(self, chans, msg):
-        for chan in chans:
-            self.parent.send_outgoing(chan, msg)
+        self.parent.send_outgoing('default', msg)
+        #for chan in chans:
+        #    self.parent.send_outgoing(chan, msg)
 
     @property
     def poll_interval(self):

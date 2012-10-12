@@ -28,9 +28,9 @@ class Feed(object):
         parser = HTMLParser()
         dict(
             (key, value if value.startswith('http') else self._strip_unicode(parser.unscape(value))) \
-            for key, value in entry.iteritems())
+            for key, value in entry.iteritems() if hasattr(value, 'startswith'))
         return self.formatstr.format(f=feed, e=entry)
-        
+
     def _strip_unicode(self, txt):
         return ''.join(c for c in txt if ord(c) < 128)
 
@@ -64,7 +64,7 @@ class RSSWatcher(PollPlugin):
     information can be retrieved from these objects.
 
     Example format string:
-        New Slashdot post: "{e[title]}" by {e[author]} 
+        New Slashdot post: "{e[title]}" by {e[author]}
 
     The entry is formatted according to that format string. A shortened url
     from e['link'] is automatically appended to the end. The above will get formatted into e.g.

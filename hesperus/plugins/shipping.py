@@ -103,6 +103,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
             self._raw_message(None,
                 '{d[owner]}: {p.carrier} seems to have found your "{d[tag]}", I\'ll watch it for updates now'.format(
                     d=data, p=package))
+            self._data[tn] = data
             del self._unready_data[tn]
         for (tn, data) in expired.items():
             package = self.get_package(tn)

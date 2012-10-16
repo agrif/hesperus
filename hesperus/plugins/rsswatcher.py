@@ -27,7 +27,7 @@ class Feed(object):
         entry['short_link'] = short_url(entry['link']) if 'link' in entry else short_url(self.url)
         parser = HTMLParser()
         dict(
-            (key, value if value.startswith('http') else self._strip_unicode(parser.unscape(value))) \
+            (key, value if value.startswith('http') else self._strip_unicode(parser.unescape(value))) \
             for key, value in entry.iteritems() if hasattr(value, 'startswith'))
         return self.formatstr.format(f=feed, e=entry)
 

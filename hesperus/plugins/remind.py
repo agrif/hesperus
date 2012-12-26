@@ -86,8 +86,11 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
                         ago=ago, **notice))
                     to_del.append(i)
             if to_del:
-                for i in to_del:
-                    del self._data[name][i]
+                for i in to_del[::-1]:
+                    try:
+                        del self._data[name][i]
+                    except IndexError:
+                        self.log_warning('Failed to delete message #%d for %s' % (i, name))
                 self.save_data()
             if not self._data[name]:
                 del self._data[name]

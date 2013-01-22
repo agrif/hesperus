@@ -197,9 +197,10 @@ class LessThanThree(CommandPlugin):
             reply('I less than three you too!')
 
 class Longer(PassivePlugin):
-    @PassivePlugin.register_pattern(r'([8B])(=+)([D>)])')
+    @PassivePlugin.register_pattern(r'([38B])(=+)([D>)])([~]*)')
     def longer(self, chans, name, match, direct, reply):
-        reply('{base}{stem}{flower}'.format(
+        reply('{base}{stem}{flower}{nectar}'.format(
             base=match.group(1),
             stem='='*(len(match.group(2))+random.choice(range(1,6))),
-            flower=match.group(3)))
+            flower=match.group(3),
+            nectar=match.group(4)))

@@ -14,13 +14,15 @@ class Repeater(Plugin):
     """
     matcher = re.compile(r"^[^! ][^ ]{0,5}$")
 
-    @Plugin.config_types(timeout=int, chance=float, exceptions=ET.Element)
-    def __init__(self, core, timeout=5, chance=0.7, exceptions=None, *args):
+    @Plugin.config_types(timeout=int, chance=float, combo_chance=float, combo_breaker=str, exceptions=ET.Element)
+    def __init__(self, core, timeout=5, chance=0.7, combo_chance=0.25, combo_breaker='C-C-C-COMBO BREAKER!', exceptions=None, *args):
         super(Repeater, self).__init__(core, *args)
         self.lastline = None
         self.lastmsg = 0
         self.timeout = timeout
         self.chance = chance
+        self.combo_chance = combo_chance
+        self.combo_breaker = combo_breaker
         self.ignore_names = [el.text.strip().lower() for el in (exceptions if exceptions is not None else []) if el.tag.lower() == 'name']
         
     @Plugin.queued
@@ -43,10 +45,16 @@ class Repeater(Plugin):
             rnd = random.random()
             self.log_debug("A repeat! Random chance was %s" % rnd)
             if rnd < self.chance:
-                self.log_debug("Repeating the line! Incomming!")
-                time.sleep(2)
-                self.lastmsg = time.time()
-                reply(msg)
+                if random.random() < self.combo_chance:
+                    self.log_debug('Ha ha, combo breaker!')
+                    reply(self.combo_breaker)
+                    time.sleep(2)
+                    self.lastmsg = time.time()
+                else:
+                    self.log_debug("Repeating the line! Incomming!")
+                    time.sleep(2)
+                    self.lastmsg = time.time()
+                    reply(msg)
         else:
             self.lastline = msg
 

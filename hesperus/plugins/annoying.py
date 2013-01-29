@@ -1,6 +1,7 @@
 import random
 import time
 import re
+import math
 
 from ..plugin import Plugin, PassivePlugin, CommandPlugin
 from ..core  import ET
@@ -14,17 +15,20 @@ class Repeater(Plugin):
     """
     matcher = re.compile(r"^[^! ][^ ]{0,5}$")
 
-    @Plugin.config_types(timeout=int, chance=float, combo_chance=float, combo_breaker=str, exceptions=ET.Element)
-    def __init__(self, core, timeout=5, chance=0.7, combo_chance=0.25, combo_breaker='C-C-C-COMBO BREAKER!', exceptions=None, *args):
+    @Plugin.config_types(timeout=int, chance=float, break_chance=float,
+            break_msg=str, exceptions=ET.Element)
+    def __init__(self, core, timeout=5, chance=0.7, break_chance=0.25,
+            break_msg='C-C-C-COMBO BREAKER!', exceptions=None, *args):
         super(Repeater, self).__init__(core, *args)
         self.lastline = None
         self.lastmsg = 0
+        self.combo_count = 1
         self.timeout = timeout
         self.chance = chance
-        self.combo_chance = combo_chance
-        self.combo_breaker = combo_breaker
+        self.break_chance = break_chance
+        self.break_msg = break_msg
         self.ignore_names = [el.text.strip().lower() for el in (exceptions if exceptions is not None else []) if el.tag.lower() == 'name']
-        
+
     @Plugin.queued
     def handle_incoming(self, chans, name, msg, direct, reply):
         if direct or name in self.ignore_names: return
@@ -42,21 +46,23 @@ class Repeater(Plugin):
             return
 
         if msg == self.lastline:
-            rnd = random.random()
-            self.log_debug("A repeat! Random chance was %s" % rnd)
-            if rnd < self.chance:
-                if random.random() < self.combo_chance:
-                    self.log_debug('Ha ha, combo breaker!')
-                    reply(self.combo_breaker)
+            self.combo_count += 1
+            for _ in range(self.combo_count):
+                if random.random() < self.break_chance * math.log10(self.combo_count):
+                    reply(self.break_msg)
+                    self.combo_count = 1
+                    self.lastline = msg
                     time.sleep(2)
-                    self.lastmsg = time.time()
-                else:
+                    break
+            else:
+                if random.random() < self.chance:
                     self.log_debug("Repeating the line! Incomming!")
                     time.sleep(2)
                     self.lastmsg = time.time()
                     reply(msg)
         else:
             self.lastline = msg
+            self.combo_count = 1
 
 class NoU(Plugin):
     """Watches for someone to say NO U and then tosses it back at them
@@ -135,13 +141,13 @@ class ORLY(Plugin):
 
 class ThatsWhatSheSaid(PassivePlugin):
     PHRASE = 'That\'s what {pronoun} said!'
-    
+
     @PassivePlugin.config_types(chance=float, max_message_length=int)
     def __init__(self, core, chance=0.1, max_message_length=140, *args):
         super(ThatsWhatSheSaid, self).__init__(core, *args)
         self._chance = chance
         self._max_message_length = max_message_length
-    
+
     @PassivePlugin.register_pattern(r'\b(he|his|she|her|[Ii](?!\')|my(?:self)?|your?)\b')
     def misogyny(self, match, reply):
         if len(match.string) < self._max_message_length:
@@ -180,11 +186,11 @@ class EightBall(PassivePlugin, CommandPlugin):
             self._messages = ["I cannot answer that"]
         self._whitelist = [el.text.strip() for el in (whitelist if whitelist is not None else []) \
             if el.tag.lower() == 'name']
-    
+
     @CommandPlugin.register_command(r'(?:(?:8|eight)(?:ball)?|zoltar)(?:$|\s+(.*))')
     def eightball_command(self, chans, name, match, direct, reply):
         self._give_answer(reply)
-        
+
     @PassivePlugin.register_pattern(r'(?i)(?:(?<=[.!?,] )|^)(?:should|can|has|is|isn\'t|does|are|do|don\'t)\b[^!?.]+\?+')
     def find_question(self, chans, name, match, direct, reply):
         if ((not self._whitelist or name in self._whitelist) and not direct) or direct:
@@ -194,10 +200,10 @@ class EightBall(PassivePlugin, CommandPlugin):
                 self._give_answer(reply)
         else:
             self.log_debug('%s not in whitelist, ignoring' % name)
-    
+
     def _give_answer(self, reply_func):
         reply_func(random.choice(self._messages))
-    
+
 class LessThanThree(CommandPlugin):
     @CommandPlugin.register_command(r'<3')
     def less_than_three(self, chans, name, match, direct, reply):

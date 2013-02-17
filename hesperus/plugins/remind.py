@@ -1,9 +1,39 @@
 from hesperus.plugin import CommandPlugin, PersistentPlugin
 import time
+import re
 
 class RemindPlugin(CommandPlugin, PersistentPlugin):
-    _USAGE = 'usage: remind <username> [@delay[m|h|d]] <message> ' \
-        '[in <delay> [minutes|hours|days]]'
+    _USAGE = 'usage: remind <username> <message> ' \
+        '[in|at <timespec>]'
+    compres = [
+              re.compile(r"^in (?P<timespec>(\d+ \w+?s? ?)+) (?P<action>.*?)$"),
+              re.compile(r"^(?P<action>.*) in (?P<timespec>(\d+ \w+?s? ?)+)$"),
+              ]
+
+    atres = [
+            re.compile(r"^at (?P<month>\w{3,4})[-/ ](?P<day>\d\d?)[-/ ](?P<year>\d{4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d) (?P<action>.*?)$"),
+            re.compile(r"^at (?P<year>\d{4})[-/ ](?P<month>\w{3,4})[-/ ](?P<day>\d\d?)\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d) (?P<action>.*?)$"),
+            re.compile(r"^at (?P<year>\d{4})[-/ ](?P<day>\d\d?)[-/ ](?P<month>\w{3,4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d) (?P<action>.*?)$"),
+            re.compile(r"^at (?P<day>\d\d?)[-/ ](?P<month>\w{3,4})[-/ ](?P<year>\d{4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d) (?P<action>.*?)$"),
+            re.compile(r"^(?P<action>.*?) at (?P<month>\w{3,4})[-/ ](?P<day>\d\d?)[-/ ](?P<year>\d{4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$"),
+            re.compile(r"^(?P<action>.*?) at (?P<year>\d{4})[-/ ](?P<month>\w{3,4})[-/ ](?P<day>\d\d?)\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$"),
+            re.compile(r"^(?P<action>.*?) at (?P<year>\d{4})[-/ ](?P<day>\d\d?)[-/ ](?P<month>\w{3,4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$"),
+            re.compile(r"^(?P<action>.*?) at (?P<day>\d\d?)[-/ ](?P<month>\w{3,4})[-/ ](?P<year>\d{4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$")
+            ]
+
+    unit_map = {
+        "second": 1,
+        "sec": 1,
+        "min": 60,
+        "minute": 60,
+        "hour": 60*60,
+        "hr": 60*60,
+        "day": 60*60*24,
+        "week": 60*60*24,
+        "wk": 60*60*24*7,
+        "month": 60*60*24*7*4, # assume 4 weeks
+        "year": 60*60*24*265,
+    }
 
     persistence_file = 'remind.json'
     @CommandPlugin.config_types(min_delay=int)
@@ -12,11 +42,11 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         self._min_delay = min_delay
         self.load_data()
 
-    @CommandPlugin.register_command(r"remind(?:\s+(?P<target>[^ ]+))?(?:\s+@(?P<time_spec>\d+[hmd]?))?(?:\s+(?P<message>.*?))?(?:\s+in\s+(?P<nat_time_spec>\d+\s+(?:mins?(?:utes?)?|hours?|days?)))?")
+    @CommandPlugin.register_command(r"remind(?:\s+(?P<target>[^ ]+))?(?:\s+(?P<message_with_timespec>.*?))?")
     def remind_command(self, chans, name, match, direct, reply):
         parts = match.groupdict()
         self.log_debug(match.group(0) + repr(match.groupdict()))
-        if not parts['target'] or not parts['message']:
+        if not parts['target'] or not parts['message_with_timespec']:
             reply(self._USAGE)
             return
 
@@ -29,17 +59,16 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
     def reminders_command(self, chans, name, match, direct, reply):
         reply(repr(self._data))
     
-    def _add_notice(self, source, target, message, time_spec=None, nat_time_spec=None):
+    def _add_notice(self, source, target, message_with_timespec):
         if target not in self._data:
             self._data[target] = []
         now = int(time.time())
-        if nat_time_spec or time_spec:
-            delay = self._parse_natural_time(nat_time_spec) \
-                if nat_time_spec else self._parse_time(time_spec)
-            if delay < self._min_delay:
-                return False
-        else:
+
+        delay, message = self._parse_and_extract(message_with_timespec)
+        if delay is None:
             delay = self._min_delay
+        else:
+            delay = delay - now
 
         self._data[target].append({
             'target': target,
@@ -51,25 +80,31 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         self.save_data()
         return True
 
-    def _parse_natural_time(self, spec):
-        ammount, unit = filter(None, (p.strip() for p in spec.split()))
-        if unit.startswith('day'):
-            return int(ammount) * 86400
-        elif unit.startswith('hour'):
-            return int(ammount) * 3600
-        else:
-            return int(ammount) * 60
+    def _parse_and_extract(self, string):
+        now = int(time.time())
+        for regex in self.compres:
+            m = regex.match(string)
+            if m:
+                timespec = m.group("timespec").split(" ")
+                action = m.group("action")
+                val = 0
+                for x in range(0, len(timespec), 2):
+                    num = int(timespec[x])
+                    unit = timespec[x+1]
+                    if unit.endswith("s"):
+                        unit = unit[:-1]
+                    val += self.unit_map[unit] * num
+                return (now+val, action)
 
-    def _parse_time(self, spec):
-        if spec.endswith('d'):
-            return int(spec[:-1]) * 86400
-        elif spec.endswith('h'):
-            return int(spec[:-1]) * 3600
-        else:
-            if spec.endswith('m'):
-                return int(spec[:-1]) * 60
-            else:
-                return int(spec) * 60
+        for regex in self.atres:
+            m = regex.match(string)
+            if m:
+                ts = time.strptime("%s %s %s %s %s %s" % m.group("year", "month", "day", "hour", "min", "sec"),
+                        "%Y %b %d %H %M %S")
+                return int(time.mktime(ts)), m.group("action")
+
+        # if still no match, assume no timespec
+        return (None, string)
 
     @CommandPlugin.queued
     def remind_check(self, name, reply):

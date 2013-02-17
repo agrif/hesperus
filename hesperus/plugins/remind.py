@@ -29,10 +29,10 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         "hour": 60*60,
         "hr": 60*60,
         "day": 60*60*24,
-        "week": 60*60*24,
+        "week": 60*60*24*7,
         "wk": 60*60*24*7,
-        "month": 60*60*24*7*4, # assume 4 weeks
-        "year": 60*60*24*265,
+        "month": 60*60*24*30,
+        "year": 60*60*24*365,
     }
 
     persistence_file = 'remind.json'
@@ -60,6 +60,7 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         reply(repr(self._data))
     
     def _add_notice(self, source, target, message_with_timespec):
+        target = target.lower()
         if target not in self._data:
             self._data[target] = []
         now = int(time.time())
@@ -109,6 +110,7 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
     @CommandPlugin.queued
     def remind_check(self, name, reply):
         now = int(time.time())
+        name = name.lower()
         if name in self._data:
             to_del = []
             for i, notice in enumerate(self._data[name]):

@@ -1,4 +1,4 @@
-import wunderpython
+from wunderpython import wunderground
 
 from .irc import IRCPlugin
 from ..plugin import CommandPlugin
@@ -6,21 +6,24 @@ from ..shorturl import short_url
 
 class WundergroundPlugin(CommandPlugin):
 
-    REPLY_MESSAGE_FMT = u'Currently {c.temperature_string} and {c.weather} in {l.name}'
+    REPLY_MESSAGE_FMT = u'Currently {c[temperature_string]} and {c[weather]} in {l.name}'
 
     @CommandPlugin.config_types(api_key=str, max_locations=int)
     def __init__(self, core, api_key=None, max_locations=3):
         super(WundergroundPlugin, self).__init__(core)
         self._api_key = api_key
         self._max_locs = max_locations
-        self._conn = wunderpython.wunderground.Wunderground(self._api_key)
+        
+        self._conn = wunderground.Wunderground(self._api_key)
+        self.log_debug('Init with api_key={} and max_locs={}'.format(api_key, max_locations))
 
-    @CommandPlugin.register_command(r'w(?:under)?g(?:round)?\s+(\S+)\s*')
+    @CommandPlugin.register_command(r'w(?:under)?g(?:round)?\s+(.+)')
     def command_get_weather(self, chans, name, match, direct, reply):
-        given_location = match.group(0)
+        given_location = match.group(1)
+        self.log_debug('Got location from IRC: {}'.format(given_location))
         wg_locations = self._get_locations(given_location)
 
-        if wg_loc:
+        if wg_locations:
             for wg_loc in wg_locations:
                 reply(self._format_message(wg_loc))
         else:

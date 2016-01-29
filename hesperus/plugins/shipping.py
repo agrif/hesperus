@@ -5,6 +5,7 @@ import time
 import datetime
 import json
 import random
+import traceback
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 from .irc import IRCPlugin
@@ -64,7 +65,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                             self._retry_period, p=package, d=data))
                 else:
                     if state.is_delivered:
-                        reply('Go check outside, that package has already been delivered...')
+                        reply('Go check outside, that package has already been delivered: <%s>' % short_url(package.url))
                     else:
                         data = {
                             'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
@@ -133,8 +134,12 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self.save_data()
 
     def output_status(self, package):
-        state = package.track()
-        data = self._data[package.tracking_number]
+        try:
+            state = package.track()
+            data = self._data[package.tracking_number]
+        except Exception:
+            traceback.print_exc()
+            return
         if state.is_delivered:
             msg = '{package.carrier} has delivered "{data[tag]}"'.format(
                 package=package, data=data)

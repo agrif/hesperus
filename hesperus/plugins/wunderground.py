@@ -6,7 +6,7 @@ from ..shorturl import short_url
 
 class WundergroundPlugin(CommandPlugin):
 
-    REPLY_MESSAGE_FMT = u'Currently {c[temperature_string]} and {c[weather]} in {l.name}'
+    REPLY_MESSAGE_FMT = u'Currently {c[temperature_string]} and {c[weather]} in {l.name} <{url}>'
 
     @CommandPlugin.config_types(api_key=str, max_locations=int)
     def __init__(self, core, api_key=None, max_locations=3):
@@ -34,4 +34,5 @@ class WundergroundPlugin(CommandPlugin):
             for l in self._conn.search(loc)[:self._max_locs]]
 
     def _format_message(self, wg_loc):
-        return self.REPLY_MESSAGE_FMT.format(l=wg_loc, c=wg_loc.conditions)
+        return self.REPLY_MESSAGE_FMT.format(l=wg_loc, c=wg_loc.conditions,
+            url=short_url(wg_loc.conditions['forecast_url']))

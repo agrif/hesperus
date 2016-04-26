@@ -1,10 +1,10 @@
-from ircbot import SingleServerIRCBot as IRCBot
-from irclib import nm_to_n, irc_lower
 from ..core import ConfigurationError, ET
 from ..plugin import Plugin
+from irc.bot import SingleServerIRCBot as IRCBot
 import re
 import string
 import time
+import irc.strings
 
 class RateLimit(object):
     """If 5 lines come in less than 2 seconds, sleep for 2 seconds"""
@@ -52,20 +52,18 @@ class IRCPluginBot(IRCBot):
         return filter(lambda c: c in string.printable, s)
     
     def on_privmsg(self, c, e):
-        source = nm_to_n(e.source())
-        msg = e.arguments()[0].strip()
+        msg = e.arguments[0].strip()
         msg = self.strip_nonprintable(msg)
-        self.do_command(source, None, msg)
+        self.do_command(e.source.nick, None, msg)
         
     def on_pubmsg(self, c, e):
-        channel = e.target()
-        source = nm_to_n(e.source())
-        msg = e.arguments()[0].strip()
+        channel = e.target
+        msg = e.arguments[0].strip()
         msg = self.strip_nonprintable(msg)
         def reply(msg):
             self.ratelimit.call()
             self.connection.privmsg(channel, msg.encode('utf-8'))
-        self.plugin.do_input([channel], source, msg, False, reply)
+        self.plugin.do_input([channel], e.source.nick, msg, False, reply)
     
     def do_command(self, source, channel, cmd):
         if cmd == "":
@@ -106,7 +104,7 @@ class IRCPlugin(Plugin):
     """
 
     @Plugin.config_types(server=str, port=int, nick=str, nickserv_password=str, channelmap=ET.Element, nickmap=ET.Element, quitmsgs=ET.Element)
-    def __init__(self, core, server='irc.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsgs=None):
+    def __init__(self, core, server='chat.freenode.net', port=6667, nick='hesperus', nickserv_password=None, channelmap=None, nickmap=None, quitmsgs=None):
         
         super(IRCPlugin, self).__init__(core)
         
@@ -175,14 +173,14 @@ class IRCPlugin(Plugin):
         
     def run(self):
         self.log_verbose("connecting...")
-        # start() calls _connect() and then ircobj.process_forever()... since
+        # start() calls _connect() and then reactor.process_forever()... since
         # we want to be in control of the main loop, just call _connect() for
         # now.
         #self.bot.start()
         self.bot._connect()
         try:
             while True:
-                self.bot.ircobj.process_once()
+                self.bot.reactor.process_once()
                 yield
         finally:
             # Apparently, IRC servers only use your quit message if you've been

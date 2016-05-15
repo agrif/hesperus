@@ -15,7 +15,7 @@ class TwitterLinkPlugin(PassivePlugin):
         #TODO actually use the api_id to allow authenticated api requests
         self.twitter_api = twitter.Api()
     
-    @PassivePlugin.register_pattern(r"\b(?:https?://)?(?:(?:www\.)?twitter.com/\#\!|mobile.twitter.com)/(?P<user>\w+)/status(?:es)?/(?P<sid>\d+)\b")
+    @PassivePlugin.register_pattern(r"\b(?:https?://)?(?:www\.|mobile\.)?twitter.com/(?:\#\!/)?(?P<user>\w+)/status(?:es)?/(?P<sid>\d+)\b")
     def status_message_pattern(self, match, reply):
         sid = int(match.groupdict()['sid'])
         user = match.groupdict()['user']

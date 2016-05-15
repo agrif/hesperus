@@ -1,3 +1,5 @@
+import hashlib
+
 from ..plugin import CommandPlugin, PollPlugin, PersistentPlugin
 from ..shorturl import short_url
 
@@ -7,6 +9,8 @@ from twitch.exceptions import ResourceUnavailableException
 class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 	MSG_STARTED_STREAM	= '{owner} started streaming "{game}": <{url}>'
 	MSG_STOPPED_STREAM	= '{owner} has stopped streaming "{game}"'
+	MSG_CHANGED_STREAM	= '{owner} has changed games to "{game}"'
+	MSG_STREAM_STATUS	= '{owner} ({status}): <{url}>'
 
 	persistence_file	= 'twitch_watcher.json'
 	_data 				= {
@@ -14,14 +18,25 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 	}
 
 	def display_usage(self, reply):
-		pass
+		reply('!watchme <twitch channel>')
 
-	@PollPlugin.config_types(poll_interval=int)
-	def __init__(self, core, poll_interval=300, *args):
+	@PollPlugin.config_types(poll_interval=int, msg_on_game_change=bool)
+	def __init__(self, core, poll_interval=90, msg_on_game_change=True, *args):
 		super(TwitchWatcherPlugin, self).__init__(core, *args)
 		self._base_interval = poll_interval
+		self._msg_on_game_change = msg_on_game_change
 
 		self.load_data()
+
+	@CommandPlugin.register_command(r'twitch')
+	def status_cmd(self, chans, name, match, direct, reply):
+		if len(self._data['watched']) > 0:
+			for irc_username, data in self._data['watched'].iteritems():
+				status = 'live' if data['live'] else 'offline'
+				reply(self.MSG_STREAM_STATUS.format(
+					owner=irc_username, status=status, url=data['url']))
+		else:
+			reply('I don\'t know anyone\'s twitch channel')
 
 	@CommandPlugin.register_command(r'watchme(?:\s+(?P<username>[\w\d_]+))?')
 	def watch_cmd(self, chans, name, match, direct, reply):
@@ -29,26 +44,31 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 		if twitch_username is None:
 			return self.display_usage(reply)
 
-		if twitch_username in self._data['watched']:
-			if self._data['watched'][twitch_username]['owner'] == name:
-				del self._data['watched'][twitch_username]
-				reply('Ok, I\'m not watching your channel anymore')
-				return self.save_data()
-			else:
-				return reply('You can\'t tell me what to do!')
+		if name in self._data['watched']:
+			del self._data['watched'][name]
+			reply('Ok, I\'m not watching your channel anymore')
+			return self.save_data()
 
 		try:
 			twitch_channel = self._get_channel(twitch_username)
 		except ResourceUnavailableException:
 			return reply('Couldn\'t find a channel by that name')
 
-		self._data['watched'][twitch_username] = {
-			'owner':	name,
-			'game':		None,
-			'live':		False,
-		}
-		reply('Ok, I\'ll watch your shitty channel')
-		return self.save_data()
+		auth_key = self._build_auth_key(name, twitch_username)
+		if auth_key in twitch_channel['status']:
+			self._data['watched'][name] = {
+				'twitch_username':	twitch_username,
+				'game':				None,
+				'live':				False,
+				'url':				twitch_channel['url'],
+			}
+			reply('Ok, I\'ll watch your shitty channel')
+			return self.save_data()
+		else:
+			self.log_debug('Found channel status as: {}'.format(twitch_channel['status']))
+			return reply('Prove that is really your channel by putting ' \
+				'"{}" in your channel status then try again after a ' \
+				'minute or two'.format(auth_key))
 
 	@property
 	def poll_interval(self):
@@ -57,27 +77,37 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 
 	def poll(self):
 		require_save = False
-		for twitch_username, data in self._data['watched'].iteritems():
-			stream = self._get_stream(twitch_username)
-			if bool(stream) == data['live']:
+		for irc_username, data in self._data['watched'].iteritems():
+			stream = self._get_stream(data['twitch_username'])
+			stream_is_live = bool(stream) and stream['average_fps'] > 5
+
+			if stream_is_live == data['live']:
 				# no change in live status
-				pass
+				if self._msg_on_game_change and \
+						stream_is_live and \
+						stream['game'] != data['game']:
+					# changed games
+					self._raw_message(self.MSG_CHANGED_STREAM.format(
+						owner=irc_username, game=stream['game']))
+
+					self._data['watched'][irc_username]['game'] = stream['game']
+					require_save = True
 			else:
-				if bool(stream):
+				if stream_is_live and stream['average_fps'] > 5:
 					# started streaming
-					self._data['watched'][twitch_username]['game'] = stream['game']
-					self._data['watched'][twitch_username]['live'] = True
+					self._data['watched'][irc_username]['game'] = stream['game']
+					self._data['watched'][irc_username]['live'] = True
 					require_save = True
 
 					self._raw_message(self.MSG_STARTED_STREAM.format(
-						owner=data['owner'], game=stream['game'], url=stream['channel']['url']))
+						owner=irc_username, game=stream['game'], url=stream['channel']['url']))
 				else:
 					# stopped streaming
 					self._raw_message(self.MSG_STOPPED_STREAM.format(
-						owner=data['owner'], game=data['game']))
+						owner=irc_username, game=data['game']))
 
-					self._data['watched'][twitch_username]['game'] = None
-					self._data['watched'][twitch_username]['live'] = False
+					self._data['watched'][irc_username]['game'] = None
+					self._data['watched'][irc_username]['live'] = False
 					require_save = True
 
 			if require_save:
@@ -94,3 +124,7 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 
 	def _raw_message(self, message):
 		self.parent.send_outgoing('default', message)
+
+	def _build_auth_key(self, irc_username, twitch_username):
+		h = hashlib.sha1('{}:{}'.format(irc_username, twitch_username)).hexdigest()
+		return 'watchme-{}'.format(h[:16])

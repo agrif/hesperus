@@ -13,15 +13,25 @@
 	</nickmap>
   </plugin>
   
+  <plugin type="hesperus.plugins.command.CommandPlugin" channels="default">
+	<names>
+	  <name>hesperus</name>
+	  <name>hesperus-gitbot</name>
+	  <name>hesp</name>
+	  <name>gitbot</name>
+	</names>
+	<command-chars>!.</command-chars>
+	<name-sep-chars>,:</name-sep-chars>
+  </plugin>
+  <plugin type="hesperus.plugins.reloader.Reloader" channels="admin"/>
+  
   <plugin type="hesperus.plugins.google.GooglePlugin" channels="default"/>
   <plugin type="hesperus.plugins.whoami.WhoAmIPlugin" channels="default"/>
   
   <plugin type="hesperus.plugins.ghub.GitHubPlugin" channels="default">
-	<!--
 	<feedmap>
-	  <feed channel="default">https://github.com/somefeed.json</feed>
+	  <feed channel="default">https://api.github.com/networks/agrif/hesperus/events</feed>
 	</feedmap>
-	-->
 	<default-user>agrif</default-user>
 	<default-repo>hesperus</default-repo>
   </plugin>

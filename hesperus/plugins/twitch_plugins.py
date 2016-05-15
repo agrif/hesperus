@@ -7,21 +7,27 @@ from twitch.api import v3 as twitch_api_v3
 from twitch.exceptions import ResourceUnavailableException
 
 class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
-	MSG_STARTED_STREAM	= '{owner} started streaming "{game}": <{url}>'
-	MSG_STOPPED_STREAM	= '{owner} has stopped streaming "{game}"'
-	MSG_CHANGED_STREAM	= '{owner} has changed games to "{game}"'
-	MSG_STREAM_STATUS	= '{owner} ({status}): <{url}>'
+	MSG_STARTED_STREAM		= '{owner} started streaming "{game}": <{url}>'
+	MSG_STOPPED_STREAM		= '{owner} has stopped streaming "{game}"'
+	MSG_CHANGED_STREAM		= '{owner} has changed games to "{game}"'
+	MSG_STREAM_STATUS		= '{owner} ({status}): <{url}>'
+	MSG_WATCHME_USAGE		= '!watchme <twitch channel>'
+	MSG_NO_CHANNELS_KNOWN	= 'I\'m not watching any twitch channels'
+	MSG_STOPPED_WATCHING	= 'Fine, I won\'t watch your channel anymore. You ' \
+								'suck at games anyway'
+	MSG_NO_CHANNEL_FOUND	= 'There\'s no channel with that name, lrn2type scrub'
+	MSG_STARTED_WATCHING	= 'Ok, I\'ll watch your shitty channel'
+	MSG_CHALLENGE_RESP		= 'Prove that is really your channel by putting ' \
+								'"{key}" in your channel status then try again ' \
+								'after a minute or two'
 
 	persistence_file	= 'twitch_watcher.json'
 	_data 				= {
 		'watched':	{},
 	}
 
-	def display_usage(self, reply):
-		reply('!watchme <twitch channel>')
-
 	@PollPlugin.config_types(poll_interval=int, msg_on_game_change=bool)
-	def __init__(self, core, poll_interval=90, msg_on_game_change=True, *args):
+	def __init__(self, core, poll_interval=90, msg_on_game_change=False, *args):
 		super(TwitchWatcherPlugin, self).__init__(core, *args)
 		self._base_interval = poll_interval
 		self._msg_on_game_change = msg_on_game_change
@@ -36,23 +42,23 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 				reply(self.MSG_STREAM_STATUS.format(
 					owner=irc_username, status=status, url=data['url']))
 		else:
-			reply('I don\'t know anyone\'s twitch channel')
+			reply(self.MSG_NO_CHANNELS_KNOWN)
 
 	@CommandPlugin.register_command(r'watchme(?:\s+(?P<username>[\w\d_]+))?')
 	def watch_cmd(self, chans, name, match, direct, reply):
 		twitch_username = match.groupdict()['username']
 		if twitch_username is None:
-			return self.display_usage(reply)
+			return reply(self.MSG_WATCHME_USAGE)
 
 		if name in self._data['watched']:
 			del self._data['watched'][name]
-			reply('Ok, I\'m not watching your channel anymore')
+			reply(self.MSG_STOPPED_WATCHING)
 			return self.save_data()
 
 		try:
 			twitch_channel = self._get_channel(twitch_username)
 		except ResourceUnavailableException:
-			return reply('Couldn\'t find a channel by that name')
+			return reply(self.MSG_NO_CHANNEL_FOUND)
 
 		auth_key = self._build_auth_key(name, twitch_username)
 		if auth_key in twitch_channel['status']:
@@ -62,13 +68,11 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 				'live':				False,
 				'url':				twitch_channel['url'],
 			}
-			reply('Ok, I\'ll watch your shitty channel')
+			reply(self.MSG_STARTED_WATCHING)
 			return self.save_data()
 		else:
 			self.log_debug('Found channel status as: {}'.format(twitch_channel['status']))
-			return reply('Prove that is really your channel by putting ' \
-				'"{}" in your channel status then try again after a ' \
-				'minute or two'.format(auth_key))
+			return reply(self.MSG_CHALLENGE_RESP.format(key=auth_key))
 
 	@property
 	def poll_interval(self):

@@ -82,7 +82,10 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 	def poll(self):
 		require_save = False
 		for irc_username, data in self._data['watched'].iteritems():
-			stream = self._get_stream(data['twitch_username'])
+		    try:
+			    stream = self._get_stream(data['twitch_username'])
+			except Exception:
+			    continue
 			stream_is_live = bool(stream) and stream['average_fps'] > 5
 
 			if stream_is_live == data['live']:
@@ -104,11 +107,11 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 					require_save = True
 
 					self._raw_message(self.MSG_STARTED_STREAM.format(
-						owner=irc_username, game=stream['game'], url=stream['channel']['url']))
+						owner=irc_username, game=stream['game'].encode('ascii', errors='ignore'), url=stream['channel']['url']))
 				else:
 					# stopped streaming
-					self._raw_message(self.MSG_STOPPED_STREAM.format(
-						owner=irc_username, game=data['game']))
+					#self._raw_message(self.MSG_STOPPED_STREAM.format(
+					#	owner=irc_username, game=data['game']))
 
 					self._data['watched'][irc_username]['game'] = None
 					self._data['watched'][irc_username]['live'] = False

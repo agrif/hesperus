@@ -59,9 +59,11 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         if not parts['target'] or not parts['message_with_timespec']:
             reply(self._USAGE)
             return
+        if parts['target'].lower() == 'me':
+            parts['target'] = name
 
         if self._add_notice(source=name, **parts):
-            reply('Reminder saved.')
+            reply('Reminder for {} saved.'.format(parts['target']))
         else:
             reply('Reminder not saved, use a longer delay (min is %d seconds).' % self._min_delay)
 
@@ -76,7 +78,7 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         now = int(time.time())
 
         delay, message = self._parse_and_extract(message_with_timespec)
-        if delay < 0:
+        if delay is not None and delay < 0:
             delay = abs(delay + now)
             for d in self.FIBONACCI_SEQ:
                 if d < delay:
@@ -161,9 +163,19 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
             for i, notice in enumerate(self._data[name]):
                 diff = now - notice['time']
                 if diff >= notice['delay']:
-                    h = diff / 3600
-                    m = (diff % 3600) / 60
-                    ago = '%02dh%02dm' % (h, m)
+                    w = diff / self.unit_map['week']
+                    d = (diff % self.unit_map['week']) / self.unit_map['day']
+                    h = (diff % self.unit_map['day']) / self.unit_map['hour']
+                    m = (diff % self.unit_map['hour']) / self.unit_map['minute']
+
+                    ago = '%02dm' % m                    
+                    if h > 0:
+                        ago = ('%02dh' % h) + ago
+                    if d > 0:
+                        ago = ('%02dd' % d) + ago
+                    if w > 0:
+                        ago = ('%02dw' % w) + ago
+
                     reply('{target}, {source} reminds you "{message}" ({ago} ago)'.format(
                         ago=ago, **notice))
                     to_del.append(i)

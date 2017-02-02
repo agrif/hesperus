@@ -42,7 +42,6 @@ class Reloader(CommandPlugin):
         try:
             config = ET.parse(self.parent.configfile).getroot()
         except Exception:
-            import traceback
             traceback.print_exc()
             reply("Error reading config file. No plugins (re)loaded")
             return
@@ -132,12 +131,12 @@ class Reloader(CommandPlugin):
                         errorlist.append(pluginname)
                     else:
                         self.parent.add_plugin(plugin)
-                
+
                 # Special provisions for reloading the IRC plugin, since the
                 # reply() method will no longer be valid
                 if pluginname == "IRCPlugin":
                     ircplugin = plugin
-                
+
 
         if ircplugin and oldircplugin:
             # We have reloaded the ircplugin. We cannot use the given reply()
@@ -177,7 +176,7 @@ class Reloader(CommandPlugin):
                 s += ", and " + errorlist[-1]
                 reply("Sorry boss, I couldn't reload %s" % s)
 
-            
+
         self.log_message("Reloading complete")
 
     @CommandPlugin.register_command("listplugins")

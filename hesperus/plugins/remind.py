@@ -169,9 +169,9 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
                     m = (diff % self.unit_map['hour']) / self.unit_map['minute']
 
                     ago = '%02dm' % m                    
-                    if h > 0:
+                    if (w+d+h) > 0:
                         ago = ('%02dh' % h) + ago
-                    if d > 0:
+                    if (w+d) > 0:
                         ago = ('%02dd' % d) + ago
                     if w > 0:
                         ago = ('%02dw' % w) + ago

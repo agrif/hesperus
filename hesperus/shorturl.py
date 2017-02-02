@@ -14,7 +14,7 @@ def short_url_goo_gl(url):
     if not url:
         return None
     
-    apiurl = 'https://www.googleapis.com/urlshortener/v1/url'
+    apiurl = 'https://www.googleapis.com/urlshortener/v1/url?key=AIzaSyABf38zgqyxMbcck-mZFTFUP--8ONuXsiQ'
     data = json.dumps({'longUrl' : url})
     headers = {'Content-Type' : 'application/json'}
     r = urllib2.Request(apiurl, data, headers)

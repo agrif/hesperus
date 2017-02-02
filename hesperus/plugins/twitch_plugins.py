@@ -82,10 +82,7 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 	def poll(self):
 		require_save = False
 		for irc_username, data in self._data['watched'].iteritems():
-		    try:
-			    stream = self._get_stream(data['twitch_username'])
-			except Exception:
-			    continue
+			stream = self._get_stream(data['twitch_username'])
 			stream_is_live = bool(stream) and stream['average_fps'] > 5
 
 			if stream_is_live == data['live']:

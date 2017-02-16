@@ -2,6 +2,8 @@ import sys
 from urllib import urlencode
 from urllib2 import urlopen
 from xml.etree import ElementTree
+import time
+import random
 
 from hesperus.plugin import CommandPlugin
 from hesperus.shorturl import short_url
@@ -51,16 +53,20 @@ def alpha(s, alpha_app_id):
     return ret
 
 class AlphaPlugin(CommandPlugin):
-    @CommandPlugin.config_types(app_id=str)
-    def __init__(self, core, app_id=''):
+    @CommandPlugin.config_types(app_id=str, confuse_chance=float)
+    def __init__(self, core, app_id='', confuse_chance=0.05):
         super(AlphaPlugin, self).__init__(core)
         self.app_id = app_id
+        self.confuse_chance = confuse_chance
     
     @CommandPlugin.register_command(r"(?:wolframalpha|wa|alpha|=)\s+(.+)")
     def alpha_command(self, chans, name, match, direct, reply):
         ret = alpha(match.group(1), self.app_id)
         if not ret['success']:
             reply('wolfram alpha is confused: %s' % short_url(ret['web']))
+            if random.random() < self.confuse_chance:
+                time.sleep(1)
+                reply('it hurt itself in its confusion!')
         else:
             s = ret['output'].splitlines()
             web = short_url(ret['web'])

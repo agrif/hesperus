@@ -42,7 +42,6 @@ class Reloader(CommandPlugin):
         try:
             config = ET.parse(self.parent.configfile).getroot()
         except Exception:
-            import traceback
             traceback.print_exc()
             reply("Error reading config file. No plugins (re)loaded")
             return

@@ -18,13 +18,19 @@ class TvTropesPlugin(CommandPlugin):
     @CommandPlugin.register_command(r"(?:tv)?tropes?\s+(.+)")
     def trope_command(self, chans, name, match, direct, reply):
         self.log_debug('searching google for trope: ' + match.group(1))
-        results = GoogleSearch().search(self.QUERY % (match.group(1),), prefetch_pages=False, prefetch_threads=1, num_results=1)
+        try:
+            results = GoogleSearch().search(self.QUERY % (match.group(1),), prefetch_pages=False, prefetch_threads=1, num_results=1)
+        except Exception:
+            reply('trope not found :(')
+            return
         if not results.results:
             reply('trope not found :(')
+            return
         url = results.results[0].url
         m = self.URLMATCH.match(url)
         if not m:
             reply('trope not found :(')
+            return
 
         subwiki = m.group(1)
         title = m.group(2)

@@ -9,12 +9,13 @@ import requests
 import re
 
 class RedditPlugin(CommandPlugin):
-    URL = "https://reddit.com/r/{name}.json?count={count}"
+    MAINURL = "https://reddit.com/r/{name}.json?count={count}"
+    URLFORMAT = "https://{subreddit}.reddit.com/{id}"
     USERAGENT = "Hesperus Reddit Plugin"
     TIMEOUT = 60 * 60 * 10
 
     @CommandPlugin.config_types(commands = ET.Element, nsfw = bool, stickies = bool, spoilers = bool, selfposts = bool, timeout = int, count = int)
-    def __init__(self, core, commands=None, nsfw=False, stickies=False, spoilers=False, selfposts = False, timeout=60*60*10, count=20):
+    def __init__(self, core, commands=None, nsfw=False, stickies=False, spoilers=False, selfposts=False, timeout=60*60*10, count=20):
         super(CommandPlugin, self).__init__(core)
         
         self.cache = {}
@@ -51,7 +52,7 @@ class RedditPlugin(CommandPlugin):
             return cached['data']
 
         # not cached, fetch the data
-        url = self.URL.format(name=name, count=self.count)
+        url = self.MAINURL.format(name=name, count=self.count)
         self.log_debug('fetching {0}'.format(url))
         try:
             results = json.loads(requests.get(url, headers={'User-Agent': self.USERAGENT}).content)
@@ -64,17 +65,32 @@ class RedditPlugin(CommandPlugin):
         return results
 
     def do_command(self, name, reply):
-        posts = self.get_posts(name)
+        allposts = self.get_posts(name)
 
         try:
-            posts = [p for p in posts if not ((p.get('over_18', False) ^ self.nsfw) or (p.get('spoiler', False) ^ self.spoilers) or (p.get('stickied', False) ^ self.stickies) or (p.get('is_self', False) ^ self.selfposts))]
+            posts = []
+            for p in allposts:
+                p = p['data']
+                if p['over_18'] and not self.nsfw:
+                    continue
+                if p['spoiler'] and not self.spoilers:
+                    continue
+                if p['stickied'] and not self.stickies:
+                    continue
+                if p['is_self'] and not self.selfposts:
+                    continue
+                posts.append(p)
 
-            post = random.choice(posts)['data']
+            post = random.choice(posts)
+            selfurl = self.URLFORMAT.format(**post)
             url = post['url']
             title = post['title']
-            reply('{0}: {1}'.format(title, short_url(url)))
+            if post['is_self'] or post['is_video']:
+                reply('{0}: {1}'.format(title, selfurl))
+            else:
+                reply('{0}: {1} <{2}>'.format(title, short_url(url), selfurl))
         except Exception, e:
-            self.log_debug(repr(e))
+            self.log_debug('error : {0}'.format(repr(e)))
             reply('no {0} today :('.format(name))
 
     @CommandPlugin.register_command(r"reddit\s+(.+)")

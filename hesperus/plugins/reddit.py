@@ -86,9 +86,9 @@ class RedditPlugin(CommandPlugin):
             url = post['url']
             title = post['title']
             if post['is_self'] or post['is_video']:
-                reply('{0}: {1}'.format(title, selfurl))
+                reply(u'{0}: {1}'.format(title, selfurl).encode('ascii', errors='replace'))
             else:
-                reply('{0}: {1} <{2}>'.format(title, short_url(url), selfurl))
+                reply(u'{0}: {1} <{2}>'.format(title, short_url(url), selfurl).encode('ascii', errors='replace'))
         except Exception, e:
             self.log_debug('error : {0}'.format(repr(e)))
             reply('no {0} today :('.format(name))

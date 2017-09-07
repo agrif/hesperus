@@ -13,14 +13,15 @@ class RedditPlugin(CommandPlugin):
     USERAGENT = "Hesperus Reddit Plugin"
     TIMEOUT = 60 * 60 * 10
 
-    @CommandPlugin.config_types(commands = ET.Element, nsfw = bool, stickies = bool, spoilers = bool, timeout = int, count = int)
-    def __init__(self, core, commands=None, nsfw=False, stickies=False, spoilers=False, timeout=60*60*10, count=20):
+    @CommandPlugin.config_types(commands = ET.Element, nsfw = bool, stickies = bool, spoilers = bool, selfposts = bool, timeout = int, count = int)
+    def __init__(self, core, commands=None, nsfw=False, stickies=False, spoilers=False, selfposts = False, timeout=60*60*10, count=20):
         super(CommandPlugin, self).__init__(core)
         
         self.cache = {}
         self.nsfw = nsfw
         self.stickies = stickies
         self.spoilers = spoilers
+        self.selfposts = selfposts
         self.timeout = timeout
         self.count = count
 
@@ -66,7 +67,7 @@ class RedditPlugin(CommandPlugin):
         posts = self.get_posts(name)
 
         try:
-            posts = [p for p in posts if not ((p.get('over_18', False) ^ self.nsfw) or (p.get('spoiler', False) ^ self.spoilers) or (p.get('stickied', False) ^ self.stickies))]
+            posts = [p for p in posts if not ((p.get('over_18', False) ^ self.nsfw) or (p.get('spoiler', False) ^ self.spoilers) or (p.get('stickied', False) ^ self.stickies) or (p.get('is_self', False) ^ self.selfposts))]
 
             post = random.choice(posts)['data']
             url = post['url']

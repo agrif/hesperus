@@ -82,7 +82,7 @@ class RedditPlugin(CommandPlugin):
                 posts.append(p)
 
             post = random.choice(posts)
-            selfurl = self.URLFORMAT.format(**post)
+            selfurl = self.URLFORMAT.format(**post).lower()
             url = post['url']
             title = post['title']
             if post['is_self'] or post['is_video']:

@@ -1,5 +1,4 @@
 import re
-import random
 
 from hesperus.plugin import CommandPlugin
 from ..core import ConfigurationError, ET
@@ -17,13 +16,14 @@ class EchoPlugin(CommandPlugin):
     list of text to match on, or an re attribute: a regular expression to
     match. The text of the <command> element will be the response.
 
-    If multiple commands match, one is chosen at random.
+    If multiple commands match, it will cycle through them.
 
     """
     @CommandPlugin.config_types(commands = ET.Element)
     def __init__(self, core, commands=None):
         super(CommandPlugin, self).__init__(core)
         
+        self.counter = 0
         self.commands = []
 
         if commands == None:
@@ -53,4 +53,6 @@ class EchoPlugin(CommandPlugin):
             if regex.match(cmd):
                 matches.append(text)
         if matches:
-            reply(random.choice(matches))
+            text = matches[self.counter % len(matches)]
+            self.counter += 1
+            reply(text)

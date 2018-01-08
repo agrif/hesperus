@@ -43,7 +43,7 @@ class RedditPlugin(CommandPlugin):
             for name in names.split(','):
                 self.commands[name.lower()] = subreddit
             if expression:
-                self.matchers[re.compile(expression, re.I)] = subreddit
+                self.matchers[re.compile('^(?:' + expression + ')$', re.I)] = subreddit
 
     def get_posts(self, name):
         now = time.time()

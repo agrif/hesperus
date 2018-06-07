@@ -5,6 +5,8 @@ import time
 import datetime
 import json
 import random
+import traceback
+import requests
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 from .irc import IRCPlugin
@@ -43,7 +45,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 package = self.get_package(tn)
                 try:
                     state = package.track()
-                except TrackingNumberFailure:
+                except requests.exceptions.Timeout:
+                    reply('{p.carrier}\'s API is being shitty and timed out, try again later'.format(
+                        p=package))
+                except TrackingNumberFailure as err:
+                    self.log_warning(err)
                     reply('{carrier} doesn\'t have any info on that number'.format(
                         carrier=package.carrier))
                 except UnsupportedTrackingNumber:
@@ -64,7 +70,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                             self._retry_period, p=package, d=data))
                 else:
                     if state.is_delivered:
-                        reply('Go check outside, that package has already been delivered...')
+                        reply('Go check outside, that package has already been delivered: <%s>' % short_url(package.url))
                     else:
                         data = {
                             'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
@@ -86,19 +92,24 @@ class PackageTracker(CommandPlugin, PollPlugin):
                 reply('I\'m not watching any packages for you right now')
 
     def poll(self):
+        self.log_debug('entering poll()')
         expired = {}
         found = {}
         for (tn, data) in self._unready_data.items():
+            self.log_debug('checking updates for tn/data: {}/{}'.format(tn,data))
             package = self.get_package(tn)
             try:
                 new_state = package.track()
             except TrackingFailure as e:
                 if int(time.time()) - data['last_update'] > self._retry_period * 3600:
                     expired[tn] = data
+            except requests.exceptions.Timeout as e:
+                continue
             else:
                 found[tn] = data
             yield
         for (tn, data) in found.items():
+            self.log_debug('sending message for updated tn/data: {}/{}'.format(tn,data))
             package = self.get_package(tn)
             self._raw_message(None,
                 '{d[owner]}: {p.carrier} seems to have found your "{d[tag]}", I\'ll watch it for updates now'.format(
@@ -106,6 +117,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
             self._data[tn] = data
             del self._unready_data[tn]
         for (tn, data) in expired.items():
+            self.log_debug('sending message for expired tn/data: {}/{}'.format(tn,data))
             package = self.get_package(tn)
             self._raw_message(None,
                 '{d[owner]}: {p.carrier} hasn\'t found your "{d[tag]}" yet so I\'m dropping it'.format(
@@ -114,10 +126,11 @@ class PackageTracker(CommandPlugin, PollPlugin):
 
         delivered = []
         for (tn, data) in self._data.items():
+            self.log_debug('sending message for delivered tn/data: {}/{}'.format(tn,data))
             package = self.get_package(tn)
             try:
                 new_state = package.track()
-            except TrackingFailure as e:
+            except (requests.exceptions.Timeout, TrackingFailure) as e:
                 self.log_warning(e)
                 continue
             new_update = int(time.mktime(new_state.last_update.timetuple()))
@@ -133,8 +146,13 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self.save_data()
 
     def output_status(self, package):
-        state = package.track()
-        data = self._data[package.tracking_number]
+        self.log_debug('sending status for tn: {}'.format(package.tracking_number))
+        try:
+            state = package.track()
+            data = self._data[package.tracking_number]
+        except Exception:
+            traceback.print_exc()
+            return
         if state.is_delivered:
             msg = '{package.carrier} has delivered "{data[tag]}"'.format(
                 package=package, data=data)
@@ -175,10 +193,12 @@ class PackageTracker(CommandPlugin, PollPlugin):
         return base_interval if len(self._data) < 2 else (base_interval / len(self._data))
 
     def save_data(self):
+        self.log_debug('saving state')
         with open(self._persist_file, 'wb') as pf:
             json.dump(self._data, pf, indent=4)
 
     def load_data(self):
+        self.log_debug('loading state')
         try:
             with open(self._persist_file, 'rb') as pf:
                 self._data.update(json.load(pf))
@@ -215,6 +235,9 @@ class PackageStatus(CommandPlugin):
         except TrackingFailure as err:
             reply('Sorry, {p.carrier} said "{msg}" <{url}>'.format(
                 p=package, msg=err, url=short_url(package.url)))
+        except requests.exceptions.Timeout:
+            reply('{p.carrier}\'s API is being shitty and timed out, try again later'.format(
+                p=package))
         except Exception as e:
             msg = '({tn}) {etype}: {message}'.format(
                 etype=e.__class__.__name__, message=e.message, tn=tn)

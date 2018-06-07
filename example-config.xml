@@ -1,0 +1,26 @@
+<config>
+  <plugin type="hesperus.plugins.irc.IRCPlugin">
+	<server>irc.freenode.net</server>
+	<port>6667</port>
+	<nick>hesperus</nick>
+
+	<channelmap>
+	  <channel name="default">#hesperus-testing</channel>
+	</channelmap>
+	
+	<nickmap>
+	  <nick channel="admin">YOUR_USERNAME</nick>
+	</nickmap>
+  </plugin>
+  
+  <plugin type="hesperus.plugins.google.GooglePlugin" channels="default"/>
+  <plugin type="hesperus.plugins.whoami.WhoAmIPlugin" channels="default"/>
+  <plugin type="hesperus.plugins.command.CommandPlugin" channels="default">
+    <command_chars>!</command_chars>
+    <names>
+      <name>hesperus</name>
+    </names>
+    <inline>True</inline>
+  </plugin>
+  <plugin type="hesperus.plugins.reloader.Reloader" channels="default"/>
+</config>

@@ -4,7 +4,12 @@ import re
 
 class RemindPlugin(CommandPlugin, PersistentPlugin):
     _USAGE = 'usage: remind <username> <message> ' \
-        '[in|at <timespec>]'
+        '[in|at|for <timespec>]'
+    # haha suck it agrif
+    FIBONACCI_SEQ = [i * 60*60*24 for i in \
+        [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584]
+    ]
+
     compres = [
               re.compile(r"^in (?P<timespec>(\d+ \w+?s? ?)+) (?P<action>.*?)$"),
               re.compile(r"^(?P<action>.*) in (?P<timespec>(\d+ \w+?s? ?)+)$"),
@@ -20,6 +25,11 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
             re.compile(r"^(?P<action>.*?) at (?P<year>\d{4})[-/ ](?P<day>\d\d?)[-/ ](?P<month>\w{3,4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$"),
             re.compile(r"^(?P<action>.*?) at (?P<day>\d\d?)[-/ ](?P<month>\w{3,4})[-/ ](?P<year>\d{4})\D(?P<hour>\d\d?)\D(?P<min>\d\d)\D(?P<sec>\d\d)$")
             ]
+
+    forres = [
+        re.compile(r'(?P<action>.*) for (?P<timespec>(\d+ \w+?s? ?)+)$'),
+        re.compile(r"^for (?P<timespec>(\d+ \w+?s? ?)+) (?P<action>.*?)$"),
+    ]
 
     unit_map = {
         "second": 1,
@@ -49,16 +59,18 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         if not parts['target'] or not parts['message_with_timespec']:
             reply(self._USAGE)
             return
+        if parts['target'].lower() == 'me':
+            parts['target'] = name
 
         if self._add_notice(source=name, **parts):
-            reply('Reminder saved.')
+            reply('Reminder for {} saved.'.format(parts['target']))
         else:
             reply('Reminder not saved, use a longer delay (min is %d seconds).' % self._min_delay)
 
     @CommandPlugin.register_command(r'reminders')
     def reminders_command(self, chans, name, match, direct, reply):
         reply(repr(self._data))
-    
+
     def _add_notice(self, source, target, message_with_timespec):
         target = target.lower()
         if target not in self._data:
@@ -66,23 +78,58 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
         now = int(time.time())
 
         delay, message = self._parse_and_extract(message_with_timespec)
-        if delay is None:
-            delay = self._min_delay
+        if delay is not None and delay < 0:
+            delay = abs(delay + now)
+            for d in self.FIBONACCI_SEQ:
+                if d < delay:
+                    self._data[target].append({
+                        'target': target,
+                        'source': source,
+                        'message': message,
+                        'time': now,
+                        'delay': d,
+                    })
+                else:
+                    break
+            self._data[target].append({
+                'target': target,
+                'source': source,
+                'message': message,
+                'time': now,
+                'delay': d,
+            })
         else:
-            delay = delay - now
+            if delay is None:
+                delay = self._min_delay
+            else:
+                delay = delay - now
 
-        self._data[target].append({
-            'target': target,
-            'source': source,
-            'message': message,
-            'time': now,
-            'delay': delay,
-        })
+            self._data[target].append({
+                'target': target,
+                'source': source,
+                'message': message,
+                'time': now,
+                'delay': delay,
+            })
         self.save_data()
         return True
 
     def _parse_and_extract(self, string):
         now = int(time.time())
+        for regex in self.forres:
+            m = regex.match(string)
+            if m:
+                timespec = m.group('timespec').split(' ')
+                action = m.group('action')
+                val = 0
+                for x in range(0, len(timespec), 2):
+                    num = int(timespec[x])
+                    unit = timespec[x+1]
+                    if unit.endswith("s"):
+                        unit = unit[:-1]
+                    val += self.unit_map[unit] * num
+                return (-(now+val), action)
+
         for regex in self.compres:
             m = regex.match(string)
             if m:
@@ -116,9 +163,19 @@ class RemindPlugin(CommandPlugin, PersistentPlugin):
             for i, notice in enumerate(self._data[name]):
                 diff = now - notice['time']
                 if diff >= notice['delay']:
-                    h = diff / 3600
-                    m = (diff % 3600) / 60
-                    ago = '%02dh%02dm' % (h, m)
+                    w = diff / self.unit_map['week']
+                    d = (diff % self.unit_map['week']) / self.unit_map['day']
+                    h = (diff % self.unit_map['day']) / self.unit_map['hour']
+                    m = (diff % self.unit_map['hour']) / self.unit_map['minute']
+
+                    ago = '%02dm' % m                    
+                    if (w+d+h) > 0:
+                        ago = ('%02dh' % h) + ago
+                    if (w+d) > 0:
+                        ago = ('%02dd' % d) + ago
+                    if w > 0:
+                        ago = ('%02dw' % w) + ago
+
                     reply('{target}, {source} reminds you "{message}" ({ago} ago)'.format(
                         ago=ago, **notice))
                     to_del.append(i)

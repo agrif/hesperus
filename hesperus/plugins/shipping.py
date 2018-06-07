@@ -10,10 +10,24 @@ import requests
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
 from .hesperus_irc import IRCPlugin
+from .evenames import EveGenerator
+
+class WordsGenerator(object):
+    def __init__(self, path):
+        with open(path, 'r') as words:
+            self._database = [line.strip() for line in words \
+                if not any(str(i) in line for i in range(10)) and len(line) <= 9]
+
+    def generate(self, tn):
+        return ' '.join(random.choice(self._database).capitalize() for i in range(3))
+
+class FallbackGenerator(object):
+    def generate(self, tn):
+        return tn
 
 class PackageTracker(CommandPlugin, PollPlugin):
-    @CommandPlugin.config_types(persist_file=str, auth_file=str, retry_period=int)
-    def __init__(self, core, persist_file='shipping-following.json', auth_file=None, retry_period=24):
+    @CommandPlugin.config_types(persist_file=str, auth_file=str, retry_period=int, eve_data=str)
+    def __init__(self, core, persist_file='shipping-following.json', auth_file=None, retry_period=24, eve_data=None):
         super(PackageTracker, self).__init__(core)
         self._persist_file = persist_file
         self._data = {}
@@ -21,14 +35,18 @@ class PackageTracker(CommandPlugin, PollPlugin):
         self._retry_period = retry_period
         packagetrack.auto_register_carriers(DotFileConfig(auth_file))
         self.load_data()
-        try:
-            with open('/usr/share/dict/words', 'r') as words:
-                self._word_database = [line.strip() for line in words \
-                    if not any(str(i) in line for i in range(10)) and len(line) <= 9]
-            self.log_debug('Found %d words for tag generation' % len(self._word_database))
-        except IOError as err:
-            self._word_database = None
-            self.log_debug('Word database not loaded: %s' % err)
+        if eve_data:
+            try:
+                self._tag_generator = EveGenerator(eve_data)
+            except Exception as e:
+                self.log_debug('Eve data not loaded: %s' % e)
+                self._tag_generator = None
+        if not self._tag_generator:
+            try:
+                self._tag_generator = WordsGenerator('/usr/share/dict/words')
+            except IOError as err:
+                self.log_debug('Word database not loaded: %s' % err)
+                self._tag_generator = FallbackGenerator()
 
     @CommandPlugin.register_command(r"ptrack(?:\s+([\w\d]+))?(?:\s+(.+))?")
     def track_command(self, chans, name, match, direct, reply):
@@ -57,7 +75,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                     reply('I don\'t know how to deal with that number')
                 except TrackingFailure as err:
                     data = {
-                        'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
+                        'tag': match.group(2) if match.group(2) else self._tag_generator.generate(tn),
                         'owner': name,
                         'channels': chans,
                         'direct': direct,
@@ -73,7 +91,7 @@ class PackageTracker(CommandPlugin, PollPlugin):
                         reply('Go check outside, that package has already been delivered: <%s>' % short_url(package.url))
                     else:
                         data = {
-                            'tag': match.group(2) if match.group(2) else self._generate_tag(tn),
+                            'tag': match.group(2) if match.group(2) else self._tag_generator.generate(tn),
                             'owner': name,
                             'channels': chans,
                             'direct': direct,
@@ -207,13 +225,6 @@ class PackageTracker(CommandPlugin, PollPlugin):
 
     def get_package(self, tn):
         return packagetrack.Package(tn)
-
-    def _generate_tag(self, tn):
-        if self._word_database is not None:
-            return ' '.join(random.choice(self._word_database).capitalize() for i in range(3))
-        else:
-            return tn
-
 
 class PackageStatus(CommandPlugin):
     def __init__(self, core, auth_file=None):

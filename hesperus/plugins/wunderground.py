@@ -1,6 +1,6 @@
 from wunderpython import wunderground
 
-from .irc import IRCPlugin
+from .hesperus_irc import IRCPlugin
 from ..plugin import CommandPlugin
 from ..shorturl import short_url
 

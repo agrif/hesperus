@@ -1,5 +1,5 @@
 <config>
-  <plugin type="hesperus.plugins.irc.IRCPlugin">
+  <plugin type="hesperus.plugins.hesperus_irc.IRCPlugin">
 	<server>irc.freenode.net</server>
 	<port>6667</port>
 	<nick>hesperus</nick>

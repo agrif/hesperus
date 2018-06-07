@@ -9,7 +9,7 @@ import traceback
 import requests
 from ..plugin import PollPlugin, CommandPlugin
 from ..shorturl import short_url
-from .irc import IRCPlugin
+from .hesperus_irc import IRCPlugin
 
 class PackageTracker(CommandPlugin, PollPlugin):
     @CommandPlugin.config_types(persist_file=str, auth_file=str, retry_period=int)

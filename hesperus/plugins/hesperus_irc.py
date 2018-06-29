@@ -62,7 +62,7 @@ class IRCPluginBot(IRCBot):
         msg = self.strip_nonprintable(msg)
         def reply(msg):
             self.ratelimit.call()
-            self.connection.privmsg(channel, msg.encode('utf-8'))
+            self.connection.privmsg(channel, msg)
         self.plugin.do_input([channel], e.source.nick, msg, False, reply)
     
     def do_command(self, source, channel, cmd):
@@ -72,9 +72,9 @@ class IRCPluginBot(IRCBot):
         def reply(msg):
             self.ratelimit.call()
             if channel == None:
-                self.connection.privmsg(source, msg.encode('utf-8'))
+                self.connection.privmsg(source, msg)
             else:
-                self.connection.privmsg(channel, ("%s: %s" % (source, msg)).encode('utf-8'))
+                self.connection.privmsg(channel, ("%s: %s" % (source, msg)))
         
         channels = []
         if channel != None:
@@ -203,7 +203,6 @@ class IRCPlugin(Plugin):
     
     @Plugin.queued
     def send_outgoing(self, chan, msg):
-        msg = msg.encode('UTF-8')
         if chan in self.chanmap:
             for irc_chan in self.chanmap[chan]:
                 self.bot.ratelimit.call()

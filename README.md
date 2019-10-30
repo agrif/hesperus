@@ -8,4 +8,4 @@ What is here is dangerous and repulsive to us. This message is a warning about d
 
 ### Requirements
 
-  * python-irclib ~ 0.4.3 (This is a *very* old version)
+ * Install from requirements.txt

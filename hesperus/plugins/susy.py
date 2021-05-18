@@ -5,7 +5,7 @@ from ..core import ET
 class Susy(PassivePlugin):
     MESSAGE = "{stem}ino, supersymmetric partner of the {stem}on"
 
-    WORDS = set('lino vino kino fino wino dino amino rhino chino imino casino domino albino merino panino pepino ammino arsino latino ladino bambino cassino porcino sordino amorino mestino palomino pecorino cioppino zechhino crostino campesino solferino andantino gravitino sopranino carbamino cipollino cappuccino maraschino concertino langostino baldachino arduino'.split())
+    WORDS = set('lino vino kino fino wino dino amino rhino chino imino casino domino albino merino panino pepino ammino arsino latino ladino bambino cassino porcino sordino amorino mestino palomino pecorino cioppino zechhino crostino campesino solferino andantino gravitino sopranino carbamino cipollino cappuccino maraschino concertino langostino baldachino arduino bernardino'.split())
 
     PARTICLES = set('electron neutron positron muon photon boson proton neutron gluon graviton'.split())
     

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import readline
 import threading
@@ -38,7 +38,7 @@ class CLI(object):
                 self.prompting = True
                 self.prompt = prompt
                 print(self.prompt, end='')
-            cmd = str(raw_input())
+            cmd = str(input())
         finally:
             with self.lock:
                 self.prompting = False
@@ -52,14 +52,14 @@ class CLI(object):
             while needs_more:
                 cmd += self.do_prompt(self.ps2)
                 needs_more = self.handle_input(cmd)
-        except UnknownCommand, e:
+        except UnknownCommand as e:
             self.handle_error(e)
     
     def run(self):
         while True:
             try:
                 self.run_once()
-            except (EOFError, KeyboardInterrupt), e:
+            except (EOFError, KeyboardInterrupt) as e:
                 with self.lock:
                     self.prompting = False
                     self.print_line()

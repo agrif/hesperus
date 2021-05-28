@@ -1,4 +1,4 @@
-import urllib, urllib2
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
 import json
 import logging
 
@@ -32,13 +32,13 @@ def short_url_goo_gl(url):
     apiurl = 'https://www.googleapis.com/urlshortener/v1/url?key={}'.format(google_api_key)
     data = json.dumps({'longUrl' : url})
     headers = {'Content-Type' : 'application/json'}
-    r = urllib2.Request(apiurl, data, headers)
+    r = urllib.request.Request(apiurl, data, headers)
     
     try:
-        retdata = urllib2.urlopen(r).read()
+        retdata = urllib.request.urlopen(r).read()
         retdata = json.loads(retdata)
         return retdata.get('id', url)
-    except urllib2.URLError as err:
+    except urllib.error.URLError as err:
         logging.warning('Got error from url shortener: %s', err)
         return url
     except ValueError:
@@ -50,16 +50,16 @@ def short_url_git_io(url):
         return None
     
     apiurl = 'http://git.io'
-    data = urllib.urlencode({'url' : url})
-    r = urllib2.Request(apiurl, data)
+    data = urllib.parse.urlencode({'url' : url})
+    r = urllib.request.Request(apiurl, data)
     
     try:
-        retdata = urllib2.urlopen(r)
+        retdata = urllib.request.urlopen(r)
         if retdata.code == 201:
             return retdata.headers['location']
         else:
             return url
-    except urllib2.URLError:
+    except urllib.error.URLError:
         return url
     except ValueError:
         return url

@@ -15,7 +15,7 @@ class EveGenerator(object):
         grams.sort(key=lambda t: t[1], reverse=True)
         grams_total = sum(t[1] for t in grams)
         lengths = self._load_json(path, base, 'lengths')
-        lengths = [(int(i), w) for i, w in lengths.items()]
+        lengths = [(int(i), w) for i, w in list(lengths.items())]
         lengths.sort(key=lambda t: t[1], reverse=True)
         lengths_total = sum(t[1] for t in lengths)
         ordered = self._load_json(path, base, 'ordered')
@@ -58,7 +58,7 @@ class EveGenerator(object):
             s.remove('-')
             s.insert(0, '-')
         
-        return (u' '.join(p + c + s)).encode('utf-8')
+        return ' '.join(p + c + s)
 
 class EveNamePlugin(CommandPlugin):
     @CommandPlugin.config_types(data=str)

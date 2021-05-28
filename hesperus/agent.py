@@ -1,8 +1,8 @@
 import threading
 import time
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from traceback import format_exc
-from ansi import colored
+from .ansi import colored
 import sys
 
 class Agent(object):
@@ -102,7 +102,7 @@ class Agent(object):
             # _running will always be one of the boolean singletons.
             while self._running:
                 try:
-                    it.next()
+                    next(it)
                 except StopIteration:
                     break
                 
@@ -117,7 +117,7 @@ class Agent(object):
                     else:
                         item[0](self, *item[1], **item[2])
         
-        except Exception, e:
+        except Exception as e:
             with self.lock:
                 self._error = (e, format_exc())
                 self.log_debug("Thread for %s has crashed!" % self.__class__.__name__)
@@ -164,7 +164,7 @@ class Agent(object):
         msg = levels[level](' '.join(map(str, message)))
         
         with cls.stdout_lock:
-            print prefix, msg
+            print(prefix, msg)
             sys.stdout.flush()
     
     # conveniences for logging

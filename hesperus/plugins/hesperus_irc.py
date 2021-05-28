@@ -49,7 +49,7 @@ class IRCPluginBot(IRCBot):
         self.plugin.connected = True
     
     def strip_nonprintable(self, s):
-        return filter(lambda c: c in string.printable, s)
+        return ''.join([c for c in s if c in string.printable])
     
     def on_privmsg(self, c, e):
         msg = e.arguments[0].strip()
@@ -148,8 +148,7 @@ class IRCPlugin(Plugin):
         if quitmsgs is None or len(quitmsgs) is 0:
             self.quitmsg = 'Daisy, daisy...'
         else:
-            self.quitmsg = filter(lambda el: el.tag.lower() == 'quitmsg',
-                quitmsgs)[int(time.time()) % len(quitmsgs)].text
+            self.quitmsg = [el for el in quitmsgs if el.tag.lower() == 'quitmsg'][int(time.time()) % len(quitmsgs)].text
         
         channels = []
         for k in self.chanmap:

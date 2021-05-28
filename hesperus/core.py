@@ -1,8 +1,8 @@
 import time
 import traceback
 
-from agent import Agent
-from plugin import Plugin, ConfigurationError, ET
+from .agent import Agent
+from .plugin import Plugin, ConfigurationError, ET
 
 class Core(Agent):
     """The core is an Agent that controls the main thread. Its job is to load
@@ -58,7 +58,7 @@ class Core(Agent):
                     self.send_outgoing("default", "One of my plugins, %s, has crashed. Someone call for help plz!"
                             % (plug.__class__.__name__,))
                     with self.__class__.stdout_lock:
-                        print plug.error[1],
+                        print(plug.error[1], end=' ')
                     # Can't remove the plugin while we're iterating over the list
                     toremove.append(plug)
                 
@@ -98,7 +98,7 @@ class Core(Agent):
             while len(self._plugins) > 0:
                 self.remove_plugin(self._plugins[0])
             if wait:
-                while not all(map(lambda plugin: plugin.thread is None, plugins_copy)):
+                while not all([plugin.thread is None for plugin in plugins_copy]):
                     time.sleep(0.1)
                 
     

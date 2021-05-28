@@ -1,4 +1,4 @@
-from agent import Agent
+from .agent import Agent
 from xml.etree import ElementTree as ET
 import time
 from copy import copy
@@ -44,8 +44,8 @@ class Plugin(Agent):
         plug_type = el.get('type', 'plugin.Plugin')
 
         plug_channels = el.get('channels', '').split(',')
-        plug_channels = filter(lambda s: len(s) > 0, plug_channels)
-        plug_channels = map(lambda s: s.strip(), plug_channels)
+        plug_channels = [s for s in plug_channels if len(s) > 0]
+        plug_channels = [s.strip() for s in plug_channels]
 
         kwargs = {}
         for subel in el:
@@ -73,7 +73,7 @@ class Plugin(Agent):
 
         try:
             plug = plugcls(core, **kwargs)
-        except TypeError, e:
+        except TypeError as e:
             traceback.print_exc()
             raise ConfigurationError(str(e))
 

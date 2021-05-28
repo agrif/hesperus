@@ -4,6 +4,7 @@ import random
 
 from ..plugin import CommandPlugin, Plugin
 from ..core import ConfigurationError, ET
+import importlib
 
 class Reloader(CommandPlugin):
 
@@ -114,8 +115,8 @@ class Reloader(CommandPlugin):
                 self.log_verbose("Reloading module %s for plugin %s" % (modulename, pluginname))
                 try:
                     mod = __import__(modulename, fromlist=[pluginname])
-                    newmod = reload(mod)
-                except Exception, e:
+                    newmod = importlib.reload(mod)
+                except Exception as e:
                     traceback.print_exc()
                     errorlist.append(pluginname)
                 else:
@@ -123,10 +124,10 @@ class Reloader(CommandPlugin):
                     self.log_verbose("Loading plugin %s" % pluginname)
                     try:
                         plugin = Plugin.load_plugin(self.parent, el)
-                    except ConfigurationError, e:
+                    except ConfigurationError as e:
                         self.log_message("Configuration error in %s: %s" % (pluginname,e,))
                         errorlist.append(pluginname)
-                    except Exception, e:
+                    except Exception as e:
                         self.log_message("Misc error in %s: %s" % (pluginname, e))
                         errorlist.append(pluginname)
                     else:

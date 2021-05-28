@@ -37,7 +37,7 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 	@CommandPlugin.register_command(r'twitch')
 	def status_cmd(self, chans, name, match, direct, reply):
 		if len(self._data['watched']) > 0:
-			for irc_username, data in self._data['watched'].iteritems():
+			for irc_username, data in self._data['watched'].items():
 				status = 'live' if data['live'] else 'offline'
 				reply(self.MSG_STREAM_STATUS.format(
 					owner=irc_username, status=status, url=data['url']))
@@ -81,7 +81,7 @@ class TwitchWatcherPlugin(PollPlugin, CommandPlugin, PersistentPlugin):
 
 	def poll(self):
 		require_save = False
-		for irc_username, data in self._data['watched'].iteritems():
+		for irc_username, data in self._data['watched'].items():
 			stream = self._get_stream(data['twitch_username'])
 			stream_is_live = bool(stream) and stream['average_fps'] > 5
 

@@ -1,6 +1,6 @@
 import sys
-from urllib import urlencode
-from urllib2 import urlopen
+from urllib.parse import urlencode
+from urllib.request import urlopen
 from xml.etree import ElementTree
 import time
 import random

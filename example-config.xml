@@ -1,6 +1,6 @@
 <config>
   <plugin type="hesperus.plugins.hesperus_irc.IRCPlugin">
-	<server>irc.freenode.net</server>
+	<server>irc.libera.chat</server>
 	<port>6667</port>
 	<nick>hesperus</nick>
 

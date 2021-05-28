@@ -19,7 +19,7 @@ def check_output(*args, **kwargs):
     returncode = p.wait()
     if returncode:
         raise subprocess.CalledProcessError(returncode, args)
-    return p.communicate()[0]
+    return p.communicate()[0].decode('utf-8')
 
 class ShCommandPlugin(CommandPlugin):
     @CommandPlugin.config_types(commands = ET.Element)
@@ -60,7 +60,7 @@ class ShCommandPlugin(CommandPlugin):
             args = ""
         
         try:
-            args = map(sh_quote, sh_split(args))
+            args = list(map(sh_quote, sh_split(args)))
             args = " " + " ".join(args)
         except ValueError:
             self.log_error("invalid arguments for \"%s\"" % (match.group(1),))

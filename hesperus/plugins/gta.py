@@ -15,8 +15,8 @@ class GTAPlugin(CommandPlugin):
         self.playlist = playlist
 
     def get_video_ids(self):
-        url = "https://www.youtube.com/playlist?list=%s" % self.playlist
-        page_data = requests.get(url).content
+        url = "https://www.youtube.com/playlist?list={}".format(self.playlist)
+        page_data = requests.get(url).content.decode('utf-8')
         p = re.compile(r'data-video-id="([^"]+)"')
         return p.findall(page_data)
 	
@@ -25,8 +25,8 @@ class GTAPlugin(CommandPlugin):
         try:
             ids = self.get_video_ids()
             vid = random.choice(ids)
-            reply(r'https://youtu.be/{0}'.format(vid).encode('ascii', errors='replace'))
-        except Exception, e:
+            reply(r'https://youtu.be/{0}'.format(vid))
+        except Exception as e:
             self.log_debug('error : {0}'.format(repr(e)))
 
     @CommandPlugin.register_command(r"gta")

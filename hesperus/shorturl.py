@@ -32,7 +32,7 @@ def short_url_goo_gl(url):
     apiurl = 'https://www.googleapis.com/urlshortener/v1/url?key={}'.format(google_api_key)
     data = json.dumps({'longUrl' : url})
     headers = {'Content-Type' : 'application/json'}
-    r = urllib.request.Request(apiurl, data, headers)
+    r = urllib.request.Request(apiurl, data.encode('utf-8'), headers)
     
     try:
         retdata = urllib.request.urlopen(r).read()
@@ -51,7 +51,7 @@ def short_url_git_io(url):
     
     apiurl = 'http://git.io'
     data = urllib.parse.urlencode({'url' : url})
-    r = urllib.request.Request(apiurl, data)
+    r = urllib.request.Request(apiurl, data.encode('utf-8'))
     
     try:
         retdata = urllib.request.urlopen(r)
@@ -64,7 +64,24 @@ def short_url_git_io(url):
     except ValueError:
         return url
 
-def short_url(url, provider="goo.gl"):
+@provider("0x0.st")
+def short_url_nullptr(url):
+    if not url:
+        return None
+
+    apiurl = 'http://0x0.st'
+    data = urllib.parse.urlencode({'shorten' : url})
+    r = urllib.request.Request(apiurl, data.encode('utf-8'))
+
+    try:
+        retdata = urllib.request.urlopen(r)
+        return retdata.read().decode('utf-8').strip()
+    except urllib.error.URLError:
+        return url
+    except ValueError:
+        return url
+
+def short_url(url, provider=None):
     global providers
     try:
         return providers[provider](url)

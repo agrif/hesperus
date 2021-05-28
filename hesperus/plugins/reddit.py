@@ -3,6 +3,7 @@ from hesperus.shorturl import short_url
 from hesperus.core import ConfigurationError, ET
 
 import time
+import traceback
 import random
 import json
 import requests
@@ -55,7 +56,7 @@ class RedditPlugin(CommandPlugin):
         url = self.MAINURL.format(name=name, count=self.count)
         self.log_debug('fetching {0}'.format(url))
         try:
-            results = json.loads(requests.get(url, headers={'User-Agent': self.USERAGENT}).content)
+            results = requests.get(url, headers={'User-Agent': self.USERAGENT}).json()
             results = results['data']['children']
         except Exception:
             # bad result!
@@ -86,10 +87,11 @@ class RedditPlugin(CommandPlugin):
             url = post['url']
             title = post['title']
             if post['is_self'] or post['is_video']:
-                reply(u'{0}: {1}'.format(title, selfurl).encode('ascii', errors='replace'))
+                reply('{0}: {1}'.format(title, selfurl))
             else:
-                reply(u'{0}: {1} <{2}>'.format(title, short_url(url), selfurl).encode('ascii', errors='replace'))
-        except Exception, e:
+                reply('{0}: {1} <{2}>'.format(title, short_url(url), selfurl))
+        except Exception as e:
+            self.log_debug(traceback.format_exc())
             self.log_debug('error : {0}'.format(repr(e)))
             reply('no {0} today :('.format(name))
 
@@ -103,7 +105,7 @@ class RedditPlugin(CommandPlugin):
         if cmd in self.commands:
             self.do_command(self.commands[cmd], reply)
         else:
-            for reobj, name in self.matchers.iteritems():
+            for reobj, name in self.matchers.items():
                 if reobj.match(cmd):
                     self.do_command(name, reply)
                     break

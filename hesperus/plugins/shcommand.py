@@ -4,7 +4,7 @@ from ..shorturl import short_url
 
 import subprocess
 from shlex import split as sh_split
-from pipes import quote as sh_quote
+from shlex import quote as sh_quote
 
 def multiline(s):
     return " ".join(s.splitlines())
